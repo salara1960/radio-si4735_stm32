@@ -46,7 +46,8 @@
 //const char *version = "Version 1.0 (26.03.2021)";
 //const char *version = "Version 1.1 (27.03.2021)";
 //const char *version = "Version 1.2 (28.03.2021)";
-const char *version = "Version 1.3 (29.03.2021)";
+//const char *version = "Version 1.3 (29.03.2021)";
+const char *version = "Version 1.3.1 (29.03.2021)";//fixed bug in SI4735_sendProperty(uint16_t propertyNumber, uint16_t parameter)
 
 /* USER CODE END PD */
 
@@ -81,7 +82,8 @@ uint8_t wr_evt_err = 0;
 uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
-volatile time_t epoch = 1617015492;//1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
+//1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
+volatile time_t epoch = 1617036280;//1617015492;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -167,7 +169,7 @@ uint32_t enctik = 0;
 	const char *rModesInch[] = {"MHz", "KHz", "??"};
 	const uint8_t rcModes[] = {POWER_UP_FM, POWER_UP_AM};
 	uint8_t radioSNR = 0, radioRSSI = 0, lradioRSSI = 1;
-	volatile uint8_t aVol = 32;
+	volatile uint8_t aVol = 63;
 	volatile uint32_t radioCntInt = 0;
 #endif
 
@@ -422,7 +424,7 @@ int main(void)
   		.x1 = recta.x1 + 2,
 		.y1 = recta.y1 + 2,
 		.x2 = recta.x2 - 2,
-		.y2 = recta.y1 + fntKey->height + 1,
+		.y2 = recta.y1 + fntKey->height + 5,
 		.bcolor = invColor(MAGENTA),
 		.duga = NULL,
   	};
@@ -455,13 +457,24 @@ int main(void)
     	lastFrecFM = curFrec;
     	SI4735_setFM1(minFrecFM, maxFrecFM, curFrec, stepFrec);//10570
     	stepFrec = SI4735_getStep();
+    	HAL_Delay(10);
     	SI4735_setVolume(aVol);
     	HAL_Delay(10);
-
     	SI4735_getFirmware();
     	HAL_Delay(10);
 
     	updateBar(&pbar, aVol);
+    	//
+    	HAL_Delay(1);
+    	//
+    	int dl = sprintf(sline, "volume: %u", aVol);
+    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
+    			pbar.y1 + 6,
+				sline,
+				*tFont,
+				invColor(BLACK),
+				invColor(WHITE));
+    	//
     }
 
 #endif
@@ -472,7 +485,7 @@ int main(void)
   	HAL_TIM_Base_Start_IT(&htim2);
 
   	Report(NULL, true, "Version '%s'. si4735:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
-  			\n\tPN=0x%02x\n\tFW=%c%c\n\tPATCH=0x%02x%02x\n\tCMP=%c%c\n\tCHIP=%c\nStart main loop\n",
+  			\n\tPN=0x%02x\n\tFW=%c%c\n\tPATCH=0x%02x%02x\n\tCMP=%c%c\n\tCHIP=%c\n",
   			version,
 			firmwareInfo.raw[0],
 			firmwareInfo.resp.CTS,    firmwareInfo.resp.ERR,    firmwareInfo.resp.DUMMY2,
@@ -609,15 +622,26 @@ int main(void)
   								stepFrec = SI4735_getStep();
   							break;
   						}
-  						//SI4735_setVolume(aVol);
-  						//HAL_Delay(10);
   						putMsg(msg_encCounter);
   						//
   					break;
   					case KEY2:
   					case KEY3:
+  					{
   						SI4735_setVolume(aVol);
+  						//
   						updateBar(&pbar, aVol);
+  						HAL_Delay(1);
+  						//
+  						int dl = sprintf(sline, "volume: %u", aVol);
+  						ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
+  						    			pbar.y1 + 6,
+  										sline,
+  										*tFont,
+  										invColor(BLACK),
+										invColor(WHITE));
+  						//
+  					}
   					break;
   				}
   				keyNumber = NONE;
@@ -1389,7 +1413,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		HalfSecCounter++;//+10ms
 
-		if (!(HalfSecCounter % _350ms)) {
+		if (!(HalfSecCounter % _400ms)) {
 			Encoder = (TIM4->CNT) >> 1;
 			if (lastEncoder != Encoder) {
 				evt_t ev = msg_none;

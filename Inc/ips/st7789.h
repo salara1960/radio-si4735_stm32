@@ -94,6 +94,8 @@
 #define LGRAYBLUE  0XA651
 #define LBBLUE     0X2B12
 
+#define TRANSPARENT  0x1234
+
 // Control Registers and constant codes
 #define ST7789_NOP     0x00
 #define ST7789_SWRESET 0x01

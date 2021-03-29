@@ -1594,17 +1594,10 @@ void SI4735_sendProperty(uint16_t propertyNumber, uint16_t parameter)
 
     property.value = propertyNumber;
     param.value = parameter;
+
     SI4735_waitToSend();
 
-    /*Wire.beginTransmission(deviceAddress);
-    Wire.write(SET_PROPERTY);
-    Wire.write(0x00);
-    Wire.write(property.raw.byteHigh); // Send property - High byte - most significant first
-    Wire.write(property.raw.byteLow);  // Send property - Low byte - less significant after
-    Wire.write(param.raw.byteHigh);    // Send the argments. High Byte - Most significant first
-    Wire.write(param.raw.byteLow);     // Send the argments. Low Byte - Less significant after
-    Wire.endTransmission();*/
-    uint8_t dat[] = {GET_PROPERTY, 0, property.raw.byteHigh, property.raw.byteLow, param.raw.byteHigh, param.raw.byteLow};
+    uint8_t dat[] = {SET_PROPERTY, 0, property.raw.byteHigh, property.raw.byteLow, param.raw.byteHigh, param.raw.byteLow};
     SI4735_write(dat, sizeof(dat));
 
     _delay(1);//delayMicroseconds(550);

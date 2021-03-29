@@ -600,6 +600,7 @@ void ST7789_WriteChar(uint16_t x, uint16_t y, char ch, FontDef font, uint16_t co
 	ST7789_UnSelect();
 }
 //-----------------------------------------------------------------------------------------
+
 /** 
  * @brief Write a string 
  * @param  x&y -> cursor of the start point.
