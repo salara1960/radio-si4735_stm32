@@ -47,7 +47,8 @@
 //const char *version = "Version 1.1 (27.03.2021)";
 //const char *version = "Version 1.2 (28.03.2021)";
 //const char *version = "Version 1.3 (29.03.2021)";
-const char *version = "Version 1.3.1 (29.03.2021)";//fixed bug in SI4735_sendProperty(uint16_t propertyNumber, uint16_t parameter)
+//const char *version = "Version 1.3.1 (29.03.2021)";//fixed bug in SI4735_sendProperty(uint16_t propertyNumber, uint16_t parameter)
+const char *version = "Version 1.4 (30.03.2021)";
 
 /* USER CODE END PD */
 
@@ -83,7 +84,7 @@ uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
-volatile time_t epoch = 1617036280;//1617015492;
+volatile time_t epoch = 1617097990;//1617036280;//1617015492;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -102,17 +103,17 @@ uint8_t devError = 0;
 uint32_t tikStart = 0;
 
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI) || defined(SET_OLED_I2C)
-	uint32_t spiRdy = 1;
 
 	#ifdef SET_OLED_I2C
-		I2C_HandleTypeDef *portOLED;
+		I2C_HandleTypeDef *portOLED = &hi2c2;
 	#else
-		SPI_HandleTypeDef *portOLED;
+		SPI_HandleTypeDef *portOLED = &hspi1;
 	#endif
 
-	char sline[128] = {0};
+	uint32_t spiRdy = 1;
 	uint32_t spi_cnt = 0;
-	//uint8_t brat = bMIN;
+	char sline[128] = {0};
+	uint16_t lcorX = 0;
 
 	#ifdef SET_ST_IPS
 		const FontDef *fntKey = &Font_16x26;
@@ -120,9 +121,6 @@ uint32_t tikStart = 0;
 		const FontDef *lFont = &Font_7x10;
 	#endif
 
-	uint16_t corX = 0;
-	uint16_t lcorX = 0;
-	uint16_t curY = 0;
 #endif
 
 bool encKeyPressed = false;
@@ -141,15 +139,13 @@ struct mallinfo mem_info;
 GPIO_PinState bt1State = GPIO_PIN_SET;
 GPIO_PinState bt2State = GPIO_PIN_SET;
 GPIO_PinState bt3State = GPIO_PIN_SET;
-uint32_t bt1tik = 0, bt1Cnt = 0;
-uint32_t bt2tik = 0, bt2Cnt = 0;
-uint32_t bt3tik = 0, bt3Cnt = 0;
+GPIO_PinState encState = GPIO_PIN_SET;
+uint32_t bt1tik = 0;
+uint32_t bt2tik = 0;
+uint32_t bt3tik = 0;
+uint32_t enctik = 0;
 bool keyFlag = false;
 uint8_t keyNumber = NONE;
-
-GPIO_PinState encState = GPIO_PIN_SET;
-uint32_t enctik = 0;
-
 
 #ifdef SET_SI4735
 	I2C_HandleTypeDef *portRADIO = &hi2c2;
@@ -157,19 +153,19 @@ uint32_t enctik = 0;
 	uint32_t max_wait_ms = 250;
 	bool radioPresent = false;
 	uint16_t curFrec = curFrecFM; // KHz
-	uint16_t lastFrecFM = 0, lastFrecAM = 0;
-	uint16_t stepFrec = 1;//KHz
+	uint16_t lastFrecFM = 0, lastFrecAM = 0, lastFrecSW = 0, lastFrecLW = 0;
+	uint16_t stepFrec = 1; //KHz
 	uint8_t radioMode = POWER_UP_FM;
 	uint8_t radioModeNew = POWER_UP_FM;
-	uint16_t minFrec = minFrecFM;//8400;//6400;
-	uint16_t maxFrec = maxFrecFM;//10800;
+	uint16_t minFrec = minFrecFM;
+	uint16_t maxFrec = maxFrecFM;
 	const uint16_t allStep[] = {1, 10, 100, 1000};
 	uint8_t stepFrecInd = 1;
-	const char *rModes[] = {"FM", "AM", "??"};
-	const char *rModesInch[] = {"MHz", "KHz", "??"};
-	const uint8_t rcModes[] = {POWER_UP_FM, POWER_UP_AM};
+	const char *rModes[] = {"FM", "AM", "SW", "LW", "??"};
+	const char *rModesInch[] = {"MHz", "KHz", "MHz", "KHz", "??"};
+	const uint8_t rcModes[] = {POWER_UP_FM, POWER_UP_AM, POWER_UP_SW, POWER_UP_LW};
 	uint8_t radioSNR = 0, radioRSSI = 0, lradioRSSI = 1;
-	volatile uint8_t aVol = 63;
+	volatile uint8_t aVol = MAX_aVol;
 	volatile uint32_t radioCntInt = 0;
 #endif
 
@@ -281,7 +277,7 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Master_Transmit(portRADIO, dev_addr << 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			putMsg(msg_errCounter);
+			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -291,7 +287,7 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Mem_Write(portRADIO, dev_addr << 1, to, 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			putMsg(msg_errCounter);
+			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -301,7 +297,7 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Master_Receive(portRADIO, dev_addr << 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			putMsg(msg_errCounter);
+			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -311,7 +307,7 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Mem_Read(portRADIO, dev_addr << 1, from, 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			putMsg(msg_errCounter);
+			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -367,31 +363,25 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
 
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, GPIO_PIN_SET);
-  HAL_Delay(250);
-  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-  HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
-  HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
+  	HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+  	HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
+  	HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, GPIO_PIN_SET);
+  	HAL_Delay(250);
+  	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+  	HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
+  	HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
+
+    //start ADC1 + interrupt
+    HAL_ADC_Start_IT(&hadc1);
+
+    //"start" rx_interrupt
+    HAL_UART_Receive_IT(&huart1, (uint8_t *)&uRxByte, 1);
 
 
-  //start ADC1 + interrupt
-  HAL_ADC_Start_IT(&hadc1);
-
-  //"start" rx_interrupt
-  HAL_UART_Receive_IT(&huart1, (uint8_t *)&uRxByte, 1);
-
-
-  char buf[MAX_UART_BUF] = {0};
-
-
-#ifdef SET_FLOAT_PART
-  s_float_t vcc = {0, 0};
-#endif
-
-  set_Date((time_t)(epoch + 1));
-  uint32_t pack_num = 0;
+  	char buf[MAX_UART_BUF] = {0};
+  	s_float_t vcc = {0, 0};
+  	set_Date((time_t)(++epoch));
+    uint32_t pack_num = 0;
 
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI) || defined(SET_OLED_I2C)
 	#ifdef SET_OLED_I2C
@@ -449,23 +439,21 @@ int main(void)
 
 #ifdef SET_SI4735
 
+
     radioPresent = devReady(deviceAddress);
     if (radioPresent) {
-    	SI4735_init(radioMode);
 
+    	SI4735_init(radioMode);
     	stepFrec = allStep[stepFrecInd];
     	lastFrecFM = curFrec;
-    	SI4735_setFM1(minFrecFM, maxFrecFM, curFrec, stepFrec);//10570
-    	stepFrec = SI4735_getStep();
-    	HAL_Delay(10);
-    	SI4735_setVolume(aVol);
-    	HAL_Delay(10);
-    	SI4735_getFirmware();
-    	HAL_Delay(10);
+    	SI4735_setFM1(minFrecFM, maxFrecFM, curFrec, stepFrec);
 
+    	SI4735_getFirmware();
+
+	#if defined(SET_ST_IPS)
     	updateBar(&pbar, aVol);
     	//
-    	HAL_Delay(1);
+    	//HAL_Delay(1);
     	//
     	int dl = sprintf(sline, "volume: %u", aVol);
     	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
@@ -475,14 +463,10 @@ int main(void)
 				invColor(BLACK),
 				invColor(WHITE));
     	//
+	#endif
     }
 
 #endif
-
-  	// start encoder's channels
-  	HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
-  	// start timer2 in interrupt mode
-  	HAL_TIM_Base_Start_IT(&htim2);
 
   	Report(NULL, true, "Version '%s'. si4735:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
   			\n\tPN=0x%02x\n\tFW=%c%c\n\tPATCH=0x%02x%02x\n\tCMP=%c%c\n\tCHIP=%c\n",
@@ -495,6 +479,11 @@ int main(void)
 			firmwareInfo.raw[4], firmwareInfo.raw[5],
 			firmwareInfo.raw[6], firmwareInfo.raw[7],
 			firmwareInfo.raw[8]);
+
+  	// start encoder's channels
+  	HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
+  	// start timer2 in interrupt mode
+  	HAL_TIM_Base_Start_IT(&htim2);
 
   	lastEncoder = Encoder = TIM4->CNT;
   	putMsg(msg_encCounter);
@@ -532,10 +521,15 @@ int main(void)
   			case msg_encCounter:
   			case msg_encPressed:
   			case msg_encReleased:
-  			case msg_errCounter:
   				if (radioMode == POWER_UP_FM) {
   					lastFrecFM = curFrec;
   					sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
+  				} else if (radioMode == POWER_UP_SW) {
+  					lastFrecSW = curFrec;
+  					sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
+  				} else if (radioMode == POWER_UP_LW) {
+  					lastFrecLW = curFrec;
+  					sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
   				} else {
   					lastFrecAM = curFrec;
   					sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
@@ -553,32 +547,24 @@ int main(void)
   				sec_to_str_time(get_tmr(0), buf);
 #if defined(SET_ST_IPS)
   				ST7789_WriteString(4, 0, buf, *fntKey, invColor(YELLOW), invColor(BLUE));
-
-//  			  putMsg(msg_radioStatus);
-  			  //corX = radioRSSI * 4;
-  			  //curY = updateFace(&recta, &corX);
-//  			  updateBar(&pbar, curY);
-
 #elif defined(SET_OLED_I2C)
   				i2c_ssd1306_text_xy(buf, 2, 1);
 #elif defined(SET_OLED_SPI)
   				spi_ssd1306_text_xy(buf, 2, 1);
 #endif
-#ifdef SET_FLOAT_PART
-  				floatPart(dataADC, &vcc);
   				sprintf(buf+strlen(buf), " [%lu] devError(%lu): 0x%02X Fifo: %d/%d Radio: mode=%s Frec=",
   					                   ++pack_num, cnt_err, devError,
 									   (int)cnt_evt, (int)max_evt,
-									   rModes[radioMode & 1]);
+									   rModes[radioMode & 3]);
   				if (radioMode == POWER_UP_FM) sprintf(buf+strlen(buf), "%u.%02u", curFrec / 100, curFrec % 100);
   				else
   				if (radioMode == POWER_UP_AM) sprintf(buf+strlen(buf), "%u", curFrec);
+  				floatPart(dataADC, &vcc);
   				sprintf(buf+strlen(buf), " %s Volume=%u, Encoder: Pressed=%lu Counter=%u, Volt:%u.%u\n",
-										rModesInch[radioMode & 1],
+										rModesInch[radioMode & 3],
 										aVol,
 										encKeyCnt, Encoder,
 										vcc.cel, vcc.dro);
-#endif
   				if (outDebug) {
   					mem_info = mallinfo();
   					sprintf(buf+strlen(buf), "(noused=%d #freeChunk=%d #freeBlk=%d #mapReg=%d busy=%d max_busy=%d #freedBlk=%d used=%d free=%d top=%d)\n",
@@ -605,44 +591,66 @@ int main(void)
   						radioMode = radioModeNew;
   						//change mode : 0 -> FM, 1 -> AM
   						stepFrec = allStep[stepFrecInd];
-  						SI4735_init(radioMode);
+  						if (!radioMode) SI4735_init(radioMode); else SI4735_init(POWER_UP_AM);
   						switch (radioMode) {
-  							case POWER_UP_AM:
-  								if (!lastFrecAM) curFrec = curFrecAM; else curFrec = lastFrecAM;
-  								minFrec = minFrecAM;
-  								maxFrec = maxFrecAM;
-  								SI4735_setAM1(minFrec, maxFrec, curFrec, stepFrec);
-  								stepFrec = SI4735_getStep();
-  							break;
   							case POWER_UP_FM:
   								if (!lastFrecFM) curFrec = curFrecFM; else curFrec = lastFrecFM;
   								minFrec = minFrecFM;
   								maxFrec = maxFrecFM;
   								SI4735_setFM1(minFrec, maxFrec, curFrec, stepFrec);
-  								stepFrec = SI4735_getStep();
+  						  	break;
+  							case POWER_UP_AM:
+  								if (!lastFrecAM) curFrec = curFrecAM; else curFrec = lastFrecAM;
+  								minFrec = minFrecAM;
+  								maxFrec = maxFrecAM;
+  								SI4735_setAM1(minFrec, maxFrec, curFrec, stepFrec);
+  							break;
+  							case POWER_UP_SW:
+  								if (!lastFrecSW) curFrec = curFrecSW; else curFrec = lastFrecSW;
+  								minFrec = minFrecSW;
+  								maxFrec = maxFrecSW;
+  								SI4735_setSSB1(minFrec, maxFrec, curFrec, stepFrec, LSB_MODE);
+  							break;
+  							case POWER_UP_LW:
+  								if (!lastFrecLW) curFrec = curFrecLW; else curFrec = lastFrecLW;
+  								minFrec = minFrecLW;
+  								maxFrec = maxFrecLW;
+  								SI4735_setAM1(minFrec, maxFrec, curFrec, stepFrec);
   							break;
   						}
-  						putMsg(msg_encCounter);
+  						//stepFrec = SI4735_getStep();
+  						//putMsg(msg_encCounter);
   						//
   					break;
   					case KEY2:
+  						SI4735_seekNextStation();
+  					break;
   					case KEY3:
-  					{
+  						SI4735_seekPreviousStation();
+  						//curFrec = SI4735_getFrequency();
+  						//putMsg(msg_encCounter);
+  					/*{
   						SI4735_setVolume(aVol);
   						//
-  						updateBar(&pbar, aVol);
-  						HAL_Delay(1);
-  						//
-  						int dl = sprintf(sline, "volume: %u", aVol);
-  						ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
+						#ifdef SET_ST_IPS
+  							updateBar(&pbar, aVol);
+  							HAL_Delay(1);
+  							//
+  							int dl = sprintf(sline, "volume: %u", aVol);
+  							ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
   						    			pbar.y1 + 6,
   										sline,
   										*tFont,
   										invColor(BLACK),
 										invColor(WHITE));
-  						//
-  					}
+  							//
+						#endif
+  					}*/
   					break;
+  				}
+  				if (keyNumber != KEY1) {
+  					putMsg(msg_encCounter);
+  					curFrec = SI4735_getFrequency();
   				}
   				keyNumber = NONE;
   			break;
@@ -651,18 +659,19 @@ int main(void)
   				SI4735_getCurrentReceivedSignalQuality1(0);
   				radioSNR = SI4735_getCurrentSNR();
   				radioRSSI = SI4735_getCurrentRSSI();
-  				sprintf(sline, " %s  SNR:", rModes[radioMode]);
-  				if (radioSNR < 10) strcat(sline, " ");
-  				sprintf(sline+strlen(sline), "%u RSSI:", radioSNR);
-  				if (radioRSSI < 10) strcat(sline, " ");
-  				sprintf(sline+strlen(sline), "%u ", radioRSSI);
-  				ST7789_WriteString(4,
+				#ifdef SET_ST_IPS
+  					sprintf(sline, " %s  SNR:", rModes[radioMode]);
+  					if (radioSNR < 10) strcat(sline, " ");
+  					sprintf(sline+strlen(sline), "%u RSSI:", radioSNR);
+  					if (radioRSSI < 10) strcat(sline, " ");
+  					sprintf(sline+strlen(sline), "%u ", radioRSSI);
+  					ST7789_WriteString(4,
 									(fntKey->height * 4) - (fntKey->height >> 1) + 4,//pbar.y1 + 4,
 									mkLineCenter(sline, tFont->width),
 									*tFont,
 									invColor(GREEN),
 									invColor(BLUE));
-  				//
+				#endif
   				HAL_Delay(1);
   			break;
   			case msg_print:
@@ -1287,13 +1296,11 @@ int ret = 0;
     return ret;
 }
 //------------------------------------------------------------------------------------------
-#ifdef SET_FLOAT_PART
 void floatPart(float val, s_float_t *part)
 {
 	part->cel = (uint16_t)val;
 	part->dro = (val - part->cel) * 1000;
 }
-#endif
 //------------------------------------------------------------------------------------------
 uint8_t Report(const char *tag, bool addTime, const char *fmt, ...)
 {
@@ -1396,7 +1403,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 					devError = 0;
 					cnt_err = 0;
 					HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
-					putMsg(msg_errCounter);
+					//putMsg(msg_errCounter);
 				}
 			}
 			rx_uk = 0;
@@ -1512,16 +1519,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt1tik) {
 				if ((HAL_GetTick() - bt1tik) > TIME_btKeyPressed) {
 					bt1tik = 0;
-					bt1Cnt++;
 					keyFlag = true;
 					keyNumber = KEY1;
-					//brat = bMIN;
-					//
-					//if (radioMode != POWER_UP_FM) radioModeNew = POWER_UP_FM;
 					radioMode++;
-					radioMode &= 1;
+					radioMode &= 3;
 					radioModeNew = rcModes[radioMode];
-					//
 				}
 			}
 		}
@@ -1534,10 +1536,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt2tik) {
 				if ((HAL_GetTick() - bt2tik) > TIME_btKeyPressed) {
 					bt2tik = 0;
-					//bt2Cnt++;
-					keyFlag = true;
-					keyNumber = KEY2;
-					if (aVol < MAX_aVol) aVol++;
+					if (aVol < MAX_aVol) {
+						aVol++;
+						keyFlag = true;
+						keyNumber = KEY2;
+					}
 				}
 			}
 		}
@@ -1550,10 +1553,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt3tik) {
 				if ((HAL_GetTick() - bt3tik) > TIME_btKeyPressed) {
 					bt3tik = 0;
-					//bt3Cnt++;
-					keyFlag = true;
-					keyNumber = KEY3;
-					if (aVol > MIN_aVol) aVol--;
+					if (aVol > MIN_aVol) {
+						aVol--;
+						keyFlag = true;
+						keyNumber = KEY3;
+					}
 				}
 			}
 		}

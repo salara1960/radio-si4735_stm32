@@ -78,10 +78,11 @@ typedef enum {
 	msg_encCounter,
 	msg_encPressed,
 	msg_encReleased,
-	msg_errCounter,
+	//msg_errCounter,
 	msg_keyEvent,
 	msg_incFrec,
 	msg_decFrec,
+	//msg_refFrec,
 	msg_radioStatus,
 	msg_none
 } evt_t;
@@ -178,9 +179,6 @@ void Error_Handler(void);
 #define _25s (_1s * 25)
 #define _30s (_1s * 30)
 
-
-#define SET_FLOAT_PART
-
 #define MAX_FIFO_SIZE  32
 #define MAX_UART_BUF  768
 
@@ -194,30 +192,24 @@ void Error_Handler(void);
 #define KEY3 3
 #define NONE 0
 
-//#define bMIN 0
-//#define bMID 127
-//#define bMAX 255
-
 
 #ifdef SET_OLED_SPI
 	#define CS_OLED_SELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_RESET)
 	#define CS_OLED_DESELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_SET)
 #endif
 
-#ifdef SET_FLOAT_PART
-	typedef struct {
-		uint16_t cel;
-		uint16_t dro;
-	} s_float_t;
-#endif
+
+typedef struct {
+	uint16_t cel;
+	uint16_t dro;
+} s_float_t;
+
 
 DMA_HandleTypeDef hdma_spi1_tx;
 
 uint8_t devError;
 uint32_t spiRdy;
 volatile uint32_t cnt_err;
-
-void putMsg(evt_t evt);
 
 
 #ifdef SET_OLED_I2C
@@ -231,15 +223,24 @@ void putMsg(evt_t evt);
 
 #ifdef SET_SI4735
 	#define max_allStep 4
-    #define max_rModes 3
+    #define max_rModes 5
 	//
-    #define minFrecFM 8400
-    #define maxFrecFM 10800
-	#define curFrecFM 10390
+    #define minFrecFM 6400  //MHz
+    #define maxFrecFM 10800 //MHz
+	#define curFrecFM 10390 //MHz
 	//
-	#define minFrecAM 550
-    #define maxFrecAM 1750
-	#define curFrecAM 810
+	#define minFrecAM 520  //KHZ
+    #define maxFrecAM 1710 //KHz
+	#define curFrecAM 810  //KHz
+	//
+	#define minFrecSW 230   //MHZ
+	#define maxFrecSW 2185 //MHz
+	#define curFrecSW 364  //MHz
+	//
+	#define minFrecLW 153 //KHz
+	#define maxFrecLW 279 //KHz
+	#define curFrecLW 216 //KHz
+
 
 	#define MIN_aVol   0
 	#define MAX_aVol  63
@@ -260,6 +261,9 @@ void putMsg(evt_t evt);
 
 	extern void SI4735_init(uint8_t defaultFunction);
 #endif
+
+
+	void putMsg(evt_t evt);
 
 
 /* USER CODE END Private defines */

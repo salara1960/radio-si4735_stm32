@@ -71,7 +71,7 @@ si47x_ssb_mode currentSSBMode;           //!<  indicates if USB or LSB
 
 si473x_powerup powerUp;
 
-uint8_t Volume = 32; //!< Stores the current vlume setup (0-63).
+uint8_t Volume = 63; //!< Stores the current vlume setup (0-63).
 
 uint8_t currentAudioMode = SI473X_ANALOG_AUDIO; //!< Current audio mode used (ANALOG or DIGITAL or both)
 uint8_t currentSsbStatus = 0;// 1 = LSB and 2 = USB; 0 = AM, FM or WB
@@ -673,10 +673,10 @@ void SI4735_setup(int interruptPin, uint8_t defaultFunction, uint8_t audioMode, 
 
     SI4735_reset();
 
-    _delay(10);
-
     SI4735_radioPowerUp();
+
     SI4735_setVolume(Volume);//30); // Default volume level.
+
     SI4735_getFirmware();
 }
 
@@ -1058,22 +1058,15 @@ void SI4735_getStatus1(uint8_t INTACK, uint8_t CANCEL)
     status.arg.CANCEL = CANCEL;
     status.arg.RESERVED2 = 0;
 
-    /*Wire.beginTransmission(deviceAddress);
-    Wire.write(cmd);
-    Wire.write(status.raw);
-    Wire.endTransmission();*/
     uint8_t dat[] = {cmd, status.raw};
     SI4735_write(dat, sizeof(dat));
     // Reads the current status (including current frequency).
-    /*do
+    do
     {
     	SI4735_waitToSend();
-        Wire.requestFrom(deviceAddress, limitResp); // Check it
-        // Gets response information
-        for (uint8_t i = 0; i < limitResp; i++)
-            currentStatus.raw[i] = Wire.read();
+
+    	SI4735_read(currentStatus.raw, limitResp);
     } while (currentStatus.resp.ERR); // If error, try it again*/
-    SI4735_read(currentStatus.raw, limitResp);
 
     SI4735_waitToSend();
 }
@@ -2894,7 +2887,7 @@ void SI4735_setSSB0(uint8_t usblsb)
  *               value 2 (banary 10) = USB;
  *               value 1 (banary 01) = LSB.
  */
-void SI4735_setSSB(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step, uint8_t usblsb)
+void SI4735_setSSB1(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step, uint8_t usblsb)
 {
     currentMinimumFrequency = fromFreq;
     currentMaximumFrequency = toFreq;

@@ -9,6 +9,8 @@
 
 #define POWER_UP_FM 0  // FM
 #define POWER_UP_AM 1  // AM and SSB (if patch applyed)
+#define POWER_UP_SW 2
+#define POWER_UP_LW 3
 #define POWER_UP_WB 3  // Weather Band Receiver
 #define POWER_PATCH 15 //
 

@@ -85,7 +85,6 @@ static void ST7789_WriteCommand(uint8_t cmd)
 	if (HAL_SPI_Transmit(portOLED, &cmd, sizeof(cmd), waits) != HAL_OK) {
 		devError |= devSPI;
 		cnt_err++;
-		putMsg(msg_errCounter);
 	} else {
 		devError &= ~devSPI;
 	}
@@ -124,7 +123,6 @@ HAL_StatusTypeDef rt = HAL_OK;
 	if (rt != HAL_OK) {
 		devError |= devSPI;
 		cnt_err++;
-		putMsg(msg_errCounter);
 	} else {
 		devError &= ~devSPI;
 	}
@@ -142,7 +140,6 @@ static void ST7789_WriteSmallData(uint8_t data)
 	if (HAL_SPI_Transmit(portOLED, &data, sizeof(data), waits) != HAL_OK) {
 		devError |= devSPI;
 		cnt_err++;
-		putMsg(msg_errCounter);
 	} else {
 		devError &= ~devSPI;
 	}
@@ -215,7 +212,6 @@ static void ST7789_SetAddressWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint1
 	if (rt != HAL_OK) {
 		devError |= devSPI;
 		cnt_err++;
-		putMsg(msg_errCounter);
 	} else {
 		devError &= ~devSPI;
 	}
@@ -344,7 +340,6 @@ void ST7789_Fill_Color(uint16_t color)
 	if (rt != HAL_OK) {
 		devError |= devSPI;
 		cnt_err++;
-		putMsg(msg_errCounter);
 	} else {
 		devError &= ~devSPI;
 	}
@@ -983,7 +978,6 @@ uint16_t sx = rc->x1 + 2;
     if (rt != HAL_OK) {
     	devError |= devSPI;
     	cnt_err++;
-    	putMsg(msg_errCounter);
     } else {
     	devError &= ~devSPI;
     }
