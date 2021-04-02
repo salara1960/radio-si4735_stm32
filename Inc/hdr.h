@@ -5,7 +5,9 @@
  *      Author: alarm
  */
 
-#define SET_STATIC_MEM
+//#define SET_DBG_INFO
+
+//#define SET_STATIC_MEM
 
 #define SET_ST_IPS
 #ifdef SET_ST_IPS
@@ -23,6 +25,8 @@
 #ifdef SET_SI4735
 //	#define SET_SI4735_INT
 #endif
+
+//#define SET_KBD
 
 
 

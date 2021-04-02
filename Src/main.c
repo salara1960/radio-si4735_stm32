@@ -48,7 +48,13 @@
 //const char *version = "Version 1.2 (28.03.2021)";
 //const char *version = "Version 1.3 (29.03.2021)";
 //const char *version = "Version 1.3.1 (29.03.2021)";//fixed bug in SI4735_sendProperty(uint16_t propertyNumber, uint16_t parameter)
-const char *version = "Version 1.4 (30.03.2021)";
+//const char *version = "Version 1.4 (30.03.2021)";
+//const char *version = "Version 1.4.1 (30.03.2021)";
+//const char *version = "Version 1.5.1 (31.03.2021)";
+//const char *version = "Version 1.5.2 (31.03.2021)";// add mpr121
+//const char *version = "Version 1.5.3 (01.04.2021)";
+const char *version = "Version 1.6 (02.04.2021)";//temporarily remove the module KBD mpr121
+
 
 /* USER CODE END PD */
 
@@ -84,7 +90,7 @@ uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
-volatile time_t epoch = 1617097990;//1617036280;//1617015492;
+volatile time_t epoch = 1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -124,13 +130,15 @@ uint32_t tikStart = 0;
 #endif
 
 bool encKeyPressed = false;
-uint8_t Encoder = 0;
-uint8_t lastEncoder = 0;
+uint32_t Encoder = MIN_ENC_VALUE;
+uint32_t lastEncoder = MIN_ENC_VALUE;
 uint32_t encKeyCnt = 0;
 uint8_t encKeyCntTmp = 0;
 
-bool outDebug = false;
-struct mallinfo mem_info;
+#ifdef SET_DBG_INFO
+	bool outDebug = false;
+	struct mallinfo mem_info;
+#endif
 
 #ifdef SET_STATIC_MEM
 	char PrnBuf[MAX_UART_BUF] = {0};
@@ -147,26 +155,82 @@ uint32_t enctik = 0;
 bool keyFlag = false;
 uint8_t keyNumber = NONE;
 
+uint16_t kbdCode = 0;
+bool kbdPresent = false;
+bool kbdInitOk = false;
+int16_t kbdAddr = 0;
+bool kbdEnable = false;
+volatile uint32_t kbdCnt = 0;
+#ifdef SET_KBD
+	I2C_HandleTypeDef *portKBD = &hi2c2;
+	uint32_t kbd1tik = 0;
+#endif
+
 #ifdef SET_SI4735
 	I2C_HandleTypeDef *portRADIO = &hi2c2;
 	uint32_t min_wait_ms = 100;
 	uint32_t max_wait_ms = 250;
 	bool radioPresent = false;
+	uint16_t minFrec, maxFrec;
 	uint16_t curFrec = curFrecFM; // KHz
 	uint16_t lastFrecFM = 0, lastFrecAM = 0, lastFrecSW = 0, lastFrecLW = 0;
 	uint16_t stepFrec = 1; //KHz
-	uint8_t radioMode = POWER_UP_FM;
-	uint8_t radioModeNew = POWER_UP_FM;
-	uint16_t minFrec = minFrecFM;
-	uint16_t maxFrec = maxFrecFM;
+	uint8_t radioMode = FMm;
+	uint8_t radioModeNew = FMm;//POWER_UP_FM;
+	//uint16_t minFrec = minFrecFM;
+	//uint16_t maxFrec = maxFrecFM;
 	const uint16_t allStep[] = {1, 10, 100, 1000};
 	uint8_t stepFrecInd = 1;
-	const char *rModes[] = {"FM", "AM", "SW", "LW", "??"};
-	const char *rModesInch[] = {"MHz", "KHz", "MHz", "KHz", "??"};
-	const uint8_t rcModes[] = {POWER_UP_FM, POWER_UP_AM, POWER_UP_SW, POWER_UP_LW};
 	uint8_t radioSNR = 0, radioRSSI = 0, lradioRSSI = 1;
 	volatile uint8_t aVol = MAX_aVol;
 	volatile uint32_t radioCntInt = 0;
+	//
+	//
+	//
+	const uint8_t rcModes[] = {FMm, LSBm, USBm, AMm};
+	const char *bandModeDesc[] = {"FM ", "LSB", "USB", "AM "};
+	uint8_t bwIdxSSB = 2;
+	const char *bandwitdthSSB[] = {"1.2", "2.2", "3.0", "4.0", "0.5", "1.0"};
+	uint8_t bwIdxAM = 1;
+	const char *bandwitdthAM[] = {"6", "4", "3", "2", "1", "1.8", "2.5"};
+
+	int currentBFO = 0;
+	uint8_t currentBFOStep = 25;
+	int curBFO = 0;
+	bool bfoOn = false;
+	bool ssbLoaded = false;
+	//bool fmStereo = true;
+	// AGC and attenuation control
+	uint8_t agcIdx = 0;
+	uint8_t disableAgc = 0;
+	uint8_t agcNdx = 0;
+
+	Band band[] = {
+	  {FM_BAND_TYPE, 6400, 10800, 10390, 10},
+	  {LW_BAND_TYPE, 100, 510, 300, 1},
+	  {MW_BAND_TYPE, 520, 1720, 810, 10},
+	  {SW_BAND_TYPE, 1800, 3500, 1900, 1}, // 160 meters
+	  {SW_BAND_TYPE, 3500, 4500, 3700, 1}, // 80 meters
+	  {SW_BAND_TYPE, 4500, 5500, 4850, 5},
+	  {SW_BAND_TYPE, 5600, 6300, 6000, 5},
+	  {SW_BAND_TYPE, 6800, 7800, 7200, 5}, // 40 meters
+	  {SW_BAND_TYPE, 9200, 10000, 9600, 5},
+	  {SW_BAND_TYPE, 10000, 11000, 10100, 1}, // 30 meters
+	  {SW_BAND_TYPE, 11200, 12500, 11940, 5},
+	  {SW_BAND_TYPE, 13400, 13900, 13600, 5},
+	  {SW_BAND_TYPE, 14000, 14500, 14200, 1}, // 20 meters
+	  {SW_BAND_TYPE, 15000, 15900, 15300, 5},
+	  {SW_BAND_TYPE, 17200, 17900, 17600, 5},
+	  {SW_BAND_TYPE, 18000, 18300, 18100, 1},  // 17 meters
+	  {SW_BAND_TYPE, 21000, 21900, 21200, 1},  // 15 mters
+	  {SW_BAND_TYPE, 24890, 26200, 24940, 1},  // 12 meters
+	  {SW_BAND_TYPE, 26200, 27900, 27500, 1},  // CB band (11 meters)
+	  {SW_BAND_TYPE, 28000, 30000, 28400, 1}
+	}; // 10 meters
+
+	const int lastBand = (sizeof band / sizeof(Band)) - 1;
+	int bandIdx = 0;
+
 #endif
 
 /* USER CODE END PV */
@@ -203,6 +267,11 @@ void putMsg(evt_t evt)
 
 	if (cnt_evt > (MAX_FIFO_SIZE - 5)) return;
 
+	/*HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI4_IRQn);*/
+
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
 	HAL_NVIC_DisableIRQ(SPI1_IRQn);
@@ -228,11 +297,21 @@ void putMsg(evt_t evt)
 	HAL_NVIC_EnableIRQ(SPI1_IRQn);
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
+
+	/*HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);*/
 }
 //-------------------------------------------------------------------------------------------
 evt_t getMsg()
 {
 evt_t ret = msg_empty;
+
+	/*HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI4_IRQn);*/
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -252,8 +331,316 @@ evt_t ret = msg_empty;
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
+	/*HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);*/
+
 	return ret;
 }
+//-------------------------------------------------------------------------------------------
+#ifdef SET_KBD
+/*
+void kbdReadBuf(uint8_t from, uint8_t *buf, size_t len)
+{
+	HAL_I2C_Master_Transmit(portKBD, kbdAddr << 1, &from, 1, min_wait_ms);
+
+	HAL_I2C_Master_Receive(portKBD, kbdAddr << 1, buf, len, max_wait_ms);
+}
+*/
+//-------------------------------------------------------------------------------------------
+void kbdWriteRegs(uint8_t reg, uint8_t *data, size_t len)
+{
+	if (HAL_I2C_Mem_Write(portKBD, kbdAddr << 1, reg, sizeof(reg), data, len, min_wait_ms) != HAL_OK) {
+		devError |= devI2C;
+		cnt_err++;
+	} else {
+		devError &= ~devI2C;
+	}
+}
+//-------------------------------------------------------------------------------------------
+/*
+uint8_t kbdReadReg(uint8_t reg)
+{
+	uint8_t ret = 0;
+
+	if (HAL_I2C_Mem_Read(portKBD, kbdAddr << 1, reg, 1, &ret, 1, min_wait_ms) != HAL_OK) {
+		devError |= devI2C;
+		cnt_err++;
+	} else {
+		devError &= ~devI2C;
+	}
+
+	return ret;
+}
+*/
+//-------------------------------------------------------------------------------------------
+void kbdReadRegs(uint8_t reg, uint8_t *data, size_t len)
+{
+	if (HAL_I2C_Mem_Read(portKBD, kbdAddr << 1, reg, 1, data, len, max_wait_ms) != HAL_OK) {
+		devError |= devI2C;
+		cnt_err++;
+	} else {
+		devError &= ~devI2C;
+	}
+}
+//-------------------------------------------------------------------------------------------
+bool KBD_getAddr(int16_t *addr)
+{
+	int16_t i = 0, adr = KBD_ADDR1;
+	uint8_t byte = 0x63;
+	for (i = 0; i < 4; i++) {
+		adr += i;
+		if (HAL_I2C_Mem_Write(portKBD, adr << 1, SRST, 1, &byte, 1, max_wait_ms) == HAL_OK) {
+			*addr = adr;
+			return true;
+		}
+	}
+    return false;
+}
+//-------------------------------------------------------------------------------------------
+bool kbdInit()
+{
+	bool success = true;
+	uint8_t ec;
+  	uint8_t reg_value = 0;
+  	uint8_t byte;
+/*
+void mpr121QuickConfig(void)
+{
+
+	 mpr121_irqInit();//interrupt set
+  // Section A
+  // This group controls filtering when data is > baseline.
+  mpr121Write(MHD_R, 0x01);//0x2B
+  mpr121Write(NHD_R, 0x01);//
+  mpr121Write(NCL_R, 0x00);//
+  mpr121Write(FDL_R, 0x00);//
+
+  // Section B
+  // This group controls filtering when data is < baseline.
+  mpr121Write(MHD_F, 0x01);
+  mpr121Write(NHD_F, 0x01);
+  mpr121Write(NCL_F, 0xFF);
+  mpr121Write(FDL_F, 0x02);//0x32
+
+  // Section C
+  // This group sets touch and release thresholds for each electrode
+  mpr121Write(ELE0_T, TOU_THRESH);
+  mpr121Write(ELE0_R, REL_THRESH);
+  mpr121Write(ELE1_T, TOU_THRESH);
+  mpr121Write(ELE1_R, REL_THRESH);
+  mpr121Write(ELE2_T, TOU_THRESH);
+  mpr121Write(ELE2_R, REL_THRESH);
+  mpr121Write(ELE3_T, TOU_THRESH);
+  mpr121Write(ELE3_R, REL_THRESH);
+  mpr121Write(ELE4_T, TOU_THRESH);
+  mpr121Write(ELE4_R, REL_THRESH);
+  mpr121Write(ELE5_T, TOU_THRESH);
+  mpr121Write(ELE5_R, REL_THRESH);
+  mpr121Write(ELE6_T, TOU_THRESH);
+  mpr121Write(ELE6_R, REL_THRESH);
+  mpr121Write(ELE7_T, TOU_THRESH);
+  mpr121Write(ELE7_R, REL_THRESH);
+  mpr121Write(ELE8_T, TOU_THRESH);
+  mpr121Write(ELE8_R, REL_THRESH);
+  mpr121Write(ELE9_T, TOU_THRESH);
+  mpr121Write(ELE9_R, REL_THRESH);
+  mpr121Write(ELE10_T, TOU_THRESH);
+  mpr121Write(ELE10_R, REL_THRESH);
+  mpr121Write(ELE11_T, TOU_THRESH);
+  mpr121Write(ELE11_R, REL_THRESH);
+
+  // Section D
+  // Set the Filter Configuration
+  // Set ESI2
+  mpr121Write(FIL_CFG, 0x04);//0x5D
+
+  // Section E
+  // Electrode Configuration
+  // Enable 6 Electrodes and set to run mode
+  // Set ELE_CFG to 0x00 to return to standby mode
+  mpr121Write(ELE_CFG, 0x0C);//0x5E	// Enables all 12 Electrodes
+  //mpr121Write(ELE_CFG, 0x06);//0x5E		// Enable first 6 electrodes
+
+  // Section F
+  // Enable Auto Config and auto Reconfig
+  ////mpr121Write(ATO_CFG0, 0x0B);
+  ////mpr121Write(ATO_CFGU, 0xC9);	// USL = (Vdd-0.7)/vdd*256 = 0xC9 @3.3V   mpr121Write(ATO_CFGL, 0x82);	// LSL = 0.65*USL = 0x82 @3.3V
+  ////mpr121Write(ATO_CFGT, 0xB5);	// Target = 0.9*USL = 0xB5 @3.3V
+
+}
+*/
+
+	// soft reset
+	//write_register(SRST, 0x63);
+	//byte = 0x63;
+	//kbdWriteRegs(SRST, &byte, 1);
+	//HAL_Delay(1);
+/*
+	// read AFE Configuration 2
+	//read_register(AFE2, &reg_value);
+	kbdReadRegs(AFE2, &reg_value, 1);
+	// check default value
+	if (reg_value != 0x24) {
+		//reg_value = 0x24;
+		//kbdWriteRegs(AFE2, &reg_value, 1);
+		return false;
+	}
+*/
+	// read Touch Status register
+	//read_register(TS2, &reg_value);
+	kbdReadRegs(TS2, &reg_value, 1);
+	if (reg_value & 0x80) {//clear OVCF
+		reg_value = 0x80;
+		kbdWriteRegs(TS2, &reg_value, 1);
+
+		kbdReadRegs(TS2, &reg_value, 1);
+		if (reg_value & 0x80) {
+			return false;
+		}
+	}
+
+	// if no previous error
+	//if (success) {
+		byte = 0;
+		kbdWriteRegs(ECR, &byte, 1);// turn off all electrodes to stop
+
+		uint8_t data[] = {
+			1, 1, 0x10, 0x20, 1, 1, 0x10, 0x20,
+			1, 0x10, 0xFF, 0x0F, 0x0F, 0, 0, 1,
+			1, 0xFF, 0xFF, 0, 0, 0
+		};
+		kbdWriteRegs(MHDR, data, sizeof(data));//0x2B ... 0x40
+
+		data[0] = 0x11;
+		data[1] = 0xD0;//0x5C - 16uA
+		data[2] = 0x14;//0x5D - Period set to 16 ms (Default)
+		kbdWriteRegs(DTR, data, 3);//0x5B ... 0x5D
+
+		memset(data, 0, 5);
+		kbdWriteRegs(ACCR0, data, 5);//0x7B ... 0x7F
+
+		byte = 0xCC;
+		kbdWriteRegs(ECR, &byte, 1);
+
+		// apply next setting for all electrodes
+		data[0] = 40;//5..0x30
+		data[1] = 20;
+		byte = E0TTH;
+		for (ec = 0; ec < NUM_OF_ELECTRODES; ec++) {
+			kbdWriteRegs(byte, data, 2);
+			byte += 2;
+		}
+
+		byte = 0x10;
+		kbdWriteRegs(ECR, &byte, 1);// enable electrodes and set the current to 16uA
+	//}
+
+	return success;
+}
+//-------------------------------------------------------------------------------------------
+uint16_t kbd_get_touch()// get touch status
+{
+	uint8_t data[2] = {0};
+	kbdReadRegs(TS1, data, 2);
+	/*if (data[1] & 0x80) {
+		uint8_t byte = 0x80;
+		kbdWriteRegs(TS2, &byte, 1);
+	}*/
+	uint16_t ret = data[1];
+	ret <<= 8;
+	ret |= data[0];
+
+	return ret;
+
+/*
+	//int tn = 0;
+	//for (int j = 0; j < NUM_OF_ELECTRODES - 1; j++) if ((ret & (1 << j))) tn++;
+
+	uint16_t key = 0;
+	//if (tn == 1) {
+		     if (ret & (1 << STAR))  key = 0x2a;//'*';
+		else if (ret & (1 << SEVEN)) key = 0x37;//'7';
+		else if (ret & (1 << FOUR))  key = 0x34;//'4';
+		else if (ret & (1 << ONE))   key = 0x31;//'1';
+		else if (ret & (1 << ZERO))  key = 0x30;//'0';
+		else if (ret & (1 << EIGHT)) key = 0x38;//'8';
+		else if (ret & (1 << FIVE))  key = 0x35;//'5';
+		else if (ret & (1 << TWO))   key = 0x32;//'2';
+		else if (ret & (1 << POUND)) key = 0x23;//'#';
+		else if (ret & (1 << NINE))  key = 0x39;//'9';
+		else if (ret & (1 << SIX))   key = 0x36;//'6';
+		else if (ret & (1 << THREE)) key = 0x33;//'3';
+	//}
+
+	return key;
+*/
+}
+
+/*
+char getPhoneNumber()
+{
+  int touchNumber;
+	int j;
+  uint16_t touchstatus;
+	char key=-1;
+  //Serial.println("Please Enter a phone number...");
+
+    //while(key_pressed);//用while读取会阻塞程序运行
+	if(key_pressed==0)//非阻塞方式
+	{
+	key_pressed=1;
+    touchNumber = 0;
+
+    touchstatus = mpr121Read(0x01) << 8;
+    touchstatus |= mpr121Read(0x00);
+
+    for (j=0; j<12; j++)  // Check how many electrodes were pressed
+    {
+      if ((touchstatus & (1<<j)))
+        touchNumber++;
+    }
+
+    if (touchNumber == 1)
+    {
+      if (touchstatus & (1<<STAR))
+        key = '*';
+      else if (touchstatus & (1<<SEVEN))
+        key = '7';
+      else if (touchstatus & (1<<FOUR))
+        key= '4';
+      else if (touchstatus & (1<<ONE))
+        key = '1';
+      else if (touchstatus & (1<<ZERO))
+        key= '0';
+      else if (touchstatus & (1<<EIGHT))
+        key = '8';
+      else if (touchstatus & (1<<FIVE))
+        key = '5';
+      else if (touchstatus & (1<<TWO))
+        key = '2';
+      else if (touchstatus & (1<<POUND))
+        key = '#';
+      else if (touchstatus & (1<<NINE))
+        key = '9';
+      else if (touchstatus & (1<<SIX))
+        key = '6';
+      else if (touchstatus & (1<<THREE))
+        key = '3';
+
+      //Serial.print(key[i]);
+
+    }
+    else if (touchNumber == 0);
+    else;
+      //Serial.println("Only touch ONE button!");
+	}
+		return key;
+}
+*/
+
+#endif
 //-------------------------------------------------------------------------------------------
 #ifdef SET_SI4735
 	void SI4735_RST_Clr()
@@ -319,6 +706,179 @@ evt_t ret = msg_empty;
 		else
 			return false;
 	}
+	//
+	void useBand()
+	{
+		if (band[bandIdx].bandType == FM_BAND_TYPE) {
+			radioMode = FMm;
+			SI4735_setTuneFrequencyAntennaCapacitor(0);
+			SI4735_setFM1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
+			bfoOn = ssbLoaded = false;
+		} else {
+			if (band[bandIdx].bandType == MW_BAND_TYPE || band[bandIdx].bandType == LW_BAND_TYPE)
+				SI4735_setTuneFrequencyAntennaCapacitor(0);
+			else
+				SI4735_setTuneFrequencyAntennaCapacitor(1);
+			if (ssbLoaded) {
+				SI4735_setSSB1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep, radioMode);
+				SI4735_setSSBAutomaticVolumeControl(1);
+			} else {
+				radioMode = AMm;
+				SI4735_setAM1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
+				bfoOn = false;
+			}
+			//SI4735_setAmSoftMuteMaxAttenuation(0);
+			SI4735_sendProperty(AM_SOFT_MUTE_MAX_ATTENUATION, 0);
+			SI4735_setAutomaticGainControl(disableAgc, agcNdx);
+		}
+		_delay(100);
+		curFrec = band[bandIdx].currentFreq;
+		stepFrec = band[bandIdx].currentStep;
+		minFrec = band[bandIdx].minimumFreq;
+		maxFrec = band[bandIdx].maximumFreq;
+
+		//showStatus();
+	}
+	void bandUp()
+	{
+		// save the current frequency for the band
+		band[bandIdx].currentFreq = curFrec;
+		band[bandIdx].currentStep = stepFrec;
+		if (bandIdx < lastBand) bandIdx++;
+				           else bandIdx = 0;
+		useBand();
+	}
+	void bandDown()
+	{
+		// save the current frequency for the band
+		band[bandIdx].currentFreq = curFrec;
+		band[bandIdx].currentStep = stepFrec;
+		if (bandIdx > 0) bandIdx--;
+					else bandIdx = lastBand;
+		useBand();
+	}
+	void modeSwitchButton()
+	{
+		if (radioMode != FMm) {
+			if (radioMode == AMm) {
+				// If you were in AM mode, it is necessary to load SSB patch (avery time)
+				SI4735_loadSSB(bwIdxSSB);
+				radioMode = LSBm;
+			} else if (radioMode == LSBm) {
+				radioMode = USBm;
+			} else if (radioMode == USBm) {
+				radioMode = AMm;
+				ssbLoaded = false;
+				bfoOn = false;
+			}
+			// Nothing to do if you are in FM mode
+			band[bandIdx].currentFreq = curFrec;
+			band[bandIdx].currentStep = stepFrec;
+			useBand();
+		}
+	}
+	void bandwitdthButton()
+	{
+		uint8_t yes = 1;
+
+		if (radioMode == LSBm || radioMode == USBm) {
+			bwIdxSSB++;
+			if (bwIdxSSB > 5) bwIdxSSB = 0;
+			SI4735_setSSBAudioBandwidth(bwIdxSSB);
+			// If audio bandwidth selected is about 2 kHz or below, it is recommended to set Sideband Cutoff Filter to 0.
+			if (bwIdxSSB == 0 || bwIdxSSB == 4 || bwIdxSSB == 5)
+				SI4735_setSBBSidebandCutoffFilter(0);
+			else
+				SI4735_setSBBSidebandCutoffFilter(1);
+		} else if (radioMode == AMm) {
+			bwIdxAM++;
+			if (bwIdxAM > 6) bwIdxAM = 0;
+			SI4735_setBandwidth(bwIdxAM, 1);
+		} else yes = 0;
+		//resetBuffer();
+		//showStatus();
+		if (yes) _delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+	}
+	void bfoSwitchButton()
+	{
+		if (radioMode == LSBm || radioMode == USBm) {
+			bfoOn = !bfoOn;
+			//if (bfoOn) showBFO();
+			//showStatus();
+			_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+		}
+		//showFrequency();
+	}
+	void stepButton()
+	{
+		// This command should work only for SSB mode
+		if (bfoOn && (radioMode == LSBm || radioMode == USBm)) {
+			currentBFOStep = (currentBFOStep == 25) ? 10 : 25;
+			//showBFO();
+		} else {
+			if (radioMode != FMm) {
+				if (stepFrec == 1) currentStep = 5;
+				else if (stepFrec == 5) stepFrec = 10;
+				else if (stepFrec == 10) stepFrec = 50;
+				else stepFrec = 1;
+			} else {
+				if (stepFrec == 10) stepFrec = 100;
+				               else stepFrec = 10;
+			}
+			SI4735_setFrequencyStep(stepFrec);
+			band[bandIdx].currentStep = stepFrec;
+			//showStatus();
+			_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+		}
+
+	}
+	void attenuationButton()
+	{
+		switch(agcIdx) {
+			case 0:
+				disableAgc = 0; // Turns AGC ON
+				agcNdx = 0;
+				agcIdx = 1;
+				break;
+			case 1:
+				disableAgc = 1; // Turns AGC OFF
+				agcNdx = 0;     // Sets minimum attenuation
+				agcIdx = 2;
+				break;
+			case 2:
+				disableAgc = 1; // Turns AGC OFF
+				agcNdx = 10;    // Increases the attenuation AM/SSB AGC Index  = 10
+				agcIdx = 3;
+				break;
+			case 3:
+				disableAgc = 1; // Turns AGC OFF
+				agcNdx = 15;    // Increases the attenuation AM/SSB AGC Index  = 30
+				agcIdx = 4;
+				break;
+			case 4:
+				disableAgc = 1; // Turns AGC OFF
+				agcNdx = 25;    // Increases the attenuation AM/SSB AGC Index  = 30
+				agcIdx = 5;
+				break;
+			case 5:
+				disableAgc = 1; // Turns AGC OFF
+				agcNdx = 35;    // Increases the attenuation AM/SSB AGC Index  = 30
+				agcIdx = 0;
+				break;
+		}
+		// Sets AGC on/off and gain
+		SI4735_setAutomaticGainControl(disableAgc, agcNdx);
+	    //showStatus();
+	}
+	void volumeButton(uint8_t d)
+	{
+		if (d == 1) SI4735_volumeUp();
+		       else SI4735_volumeDown();
+		aVol = SI4735_getVolume();
+		//showVolume();
+		_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+	}
+
 #endif
 //-------------------------------------------------------------------------------------------
 
@@ -371,6 +931,9 @@ int main(void)
   	HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
   	HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
 
+
+  	HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+
     //start ADC1 + interrupt
     HAL_ADC_Start_IT(&hadc1);
 
@@ -397,8 +960,6 @@ int main(void)
   	ST7789_Init();
 
   	ST7789_Fill_Color(invColor(BLUE));
-
-  	ST7789_BlkSet();
 
   	area_t recta = {
   		.x1 = 0,
@@ -437,6 +998,15 @@ int main(void)
 #endif
 
 
+#ifdef SET_KBD
+    kbdPresent = KBD_getAddr(&kbdAddr);
+    if (kbdPresent) {
+    	kbdInitOk = kbdInit();
+    	HAL_Delay(10);
+    }
+#endif
+
+
 #ifdef SET_SI4735
 
 
@@ -444,9 +1014,13 @@ int main(void)
     if (radioPresent) {
 
     	SI4735_init(radioMode);
-    	stepFrec = allStep[stepFrecInd];
-    	lastFrecFM = curFrec;
-    	SI4735_setFM1(minFrecFM, maxFrecFM, curFrec, stepFrec);
+
+    	HAL_Delay(300);
+    	// Set up the radio for the current band (see index table variable bandIdx )
+    	useBand();
+    	curFrec = SI4735_getFrequency();
+    	SI4735_setVolume(aVol);
+    	//showStatus();
 
     	SI4735_getFirmware();
 
@@ -468,9 +1042,10 @@ int main(void)
 
 #endif
 
-  	Report(NULL, true, "Version '%s'. si4735:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
+  	Report(NULL, true, "Version '%s'\nkbdPresent=%d kbdInit=%d kbdAddr=0x%02X\nsi4735:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
   			\n\tPN=0x%02x\n\tFW=%c%c\n\tPATCH=0x%02x%02x\n\tCMP=%c%c\n\tCHIP=%c\n",
   			version,
+			kbdPresent, kbdInitOk, kbdAddr,
 			firmwareInfo.raw[0],
 			firmwareInfo.resp.CTS,    firmwareInfo.resp.ERR,    firmwareInfo.resp.DUMMY2,
 			firmwareInfo.resp.RSQINT, firmwareInfo.resp.RDSINT, firmwareInfo.resp.DUMMY1, firmwareInfo.resp.STCINT,
@@ -490,6 +1065,12 @@ int main(void)
 
     /* Infinite loop */
 
+  	#ifdef SET_KBD
+  	if (kbdPresent && kbdInitOk) {
+  		kbdEnable = true;
+  		HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+  	}
+#endif
 
   /* USER CODE END 2 */
 
@@ -504,6 +1085,16 @@ int main(void)
   		evt = getMsg();
   		switch ((int)evt) {
 	  	  	//
+  			case msg_kbd:
+#ifdef SET_KBD
+  				kbdCnt++;
+  				if (kbdEnable) {
+  					//HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
+  					kbdCode = kbd_get_touch();
+  				}
+#endif
+  			break;
+  			//
   			case msg_incFrec:
   				if ((curFrec + stepFrec) <= maxFrec) {
   					SI4735_frequencyUp();//+stepFrec
@@ -521,18 +1112,30 @@ int main(void)
   			case msg_encCounter:
   			case msg_encPressed:
   			case msg_encReleased:
-  				if (radioMode == POWER_UP_FM) {
+  				/*
+  				if (bfoOn) {
+  					currentBFO = (Encoder == 1) ? (currentBFO + currentBFOStep) : (currentBFO - currentBFOStep);
+  				    SI4735_setSSBBfo(currentBFO);
+  				    //showBFO();
+  				} else {
+  					//if (Encoder == 1) SI4735_frequencyUp();
+  				    //             else SI4735_frequencyDown();
+  				    // Show the current frequency only if it has changed
+  					//curFrec = SI4735_getFrequency();
+  					//showFrequency();
+  				}
+  				//Encoder = 0;*/
+
+  				//
+  				if (radioMode == FMm) {
   					lastFrecFM = curFrec;
   					sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
-  				} else if (radioMode == POWER_UP_SW) {
-  					lastFrecSW = curFrec;
-  					sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
-  				} else if (radioMode == POWER_UP_LW) {
-  					lastFrecLW = curFrec;
-  					sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
   				} else {
-  					lastFrecAM = curFrec;
   					sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
+  					//if (radioMode == POWER_UP_SW) lastFrecSW = curFrec;
+  					//else
+  					if (radioMode == LW) lastFrecLW = curFrec;
+  					else if (radioMode == AMm) lastFrecAM = curFrec;
   				}
 #if defined(SET_ST_IPS)
   				ST7789_WriteString(2, fntKey->height + 1, mkLineCenter(sline, tFont->width), *tFont, invColor(GREEN), invColor(BLUE));
@@ -541,7 +1144,6 @@ int main(void)
 #elif defined(SET_OLED_SPI)
   				spi_ssd1306_text_xy(sline, 1, 3);
 #endif
-  				//HAL_Delay(1);
   			break;
   			case msg_sec:
   				sec_to_str_time(get_tmr(0), buf);
@@ -552,19 +1154,24 @@ int main(void)
 #elif defined(SET_OLED_SPI)
   				spi_ssd1306_text_xy(buf, 2, 1);
 #endif
-  				sprintf(buf+strlen(buf), " [%lu] devError(%lu): 0x%02X Fifo: %d/%d Radio: mode=%s Frec=",
+  				sprintf(buf+strlen(buf), " [%lu] devError(%lu): 0x%02X, Fifo: %d/%d, KBD: cnt=%lu code=%04X, Radio: mode=%s Frec=",
   					                   ++pack_num, cnt_err, devError,
 									   (int)cnt_evt, (int)max_evt,
-									   rModes[radioMode & 3]);
-  				if (radioMode == POWER_UP_FM) sprintf(buf+strlen(buf), "%u.%02u", curFrec / 100, curFrec % 100);
+									   kbdCnt, kbdCode,
+									   bandModeDesc[radioMode & 3]);
+  				if (radioMode == FMm)
+  					sprintf(buf+strlen(buf), "%u.%02u (%u.%u-%u.%u) MHz",
+  							curFrec / 100, curFrec % 100,
+							minFrec / 100, minFrec % 100,
+							maxFrec / 100, maxFrec % 100);
   				else
-  				if (radioMode == POWER_UP_AM) sprintf(buf+strlen(buf), "%u", curFrec);
+  					sprintf(buf+strlen(buf), "%u (%u-%u) KHz", curFrec, minFrec, maxFrec);
   				floatPart(dataADC, &vcc);
-  				sprintf(buf+strlen(buf), " %s Volume=%u, Encoder: Pressed=%lu Counter=%u, Volt:%u.%u\n",
-										rModesInch[radioMode & 3],
+  				sprintf(buf+strlen(buf), " Volume=%u, Encoder: Pressed=%lu Counter=%lu, Volt:%u.%u\n",
 										aVol,
 										encKeyCnt, Encoder,
 										vcc.cel, vcc.dro);
+#ifdef SET_DBG_INFO
   				if (outDebug) {
   					mem_info = mallinfo();
   					sprintf(buf+strlen(buf), "(noused=%d #freeChunk=%d #freeBlk=%d #mapReg=%d busy=%d max_busy=%d #freedBlk=%d used=%d free=%d top=%d)\n",
@@ -579,6 +1186,7 @@ int main(void)
 										   mem_info.fordblks,// Total free space (bytes)
 										   mem_info.keepcost);// Top-most, releasable space (bytes)
   				}
+#endif
   				Report(NULL, false, "%s", buf);//putMsg(msg_print);
 
   				if (devError) errLedOn(NULL);
@@ -589,68 +1197,27 @@ int main(void)
   				switch (keyNumber) {
   					case KEY1:
   						radioMode = radioModeNew;
-  						//change mode : 0 -> FM, 1 -> AM
-  						stepFrec = allStep[stepFrecInd];
-  						if (!radioMode) SI4735_init(radioMode); else SI4735_init(POWER_UP_AM);
-  						switch (radioMode) {
-  							case POWER_UP_FM:
-  								if (!lastFrecFM) curFrec = curFrecFM; else curFrec = lastFrecFM;
-  								minFrec = minFrecFM;
-  								maxFrec = maxFrecFM;
-  								SI4735_setFM1(minFrec, maxFrec, curFrec, stepFrec);
-  						  	break;
-  							case POWER_UP_AM:
-  								if (!lastFrecAM) curFrec = curFrecAM; else curFrec = lastFrecAM;
-  								minFrec = minFrecAM;
-  								maxFrec = maxFrecAM;
-  								SI4735_setAM1(minFrec, maxFrec, curFrec, stepFrec);
-  							break;
-  							case POWER_UP_SW:
-  								if (!lastFrecSW) curFrec = curFrecSW; else curFrec = lastFrecSW;
-  								minFrec = minFrecSW;
-  								maxFrec = maxFrecSW;
-  								SI4735_setSSB1(minFrec, maxFrec, curFrec, stepFrec, LSB_MODE);
-  							break;
-  							case POWER_UP_LW:
-  								if (!lastFrecLW) curFrec = curFrecLW; else curFrec = lastFrecLW;
-  								minFrec = minFrecLW;
-  								maxFrec = maxFrecLW;
-  								SI4735_setAM1(minFrec, maxFrec, curFrec, stepFrec);
-  							break;
-  						}
-  						//stepFrec = SI4735_getStep();
-  						//putMsg(msg_encCounter);
-  						//
+  						modeSwitchButton();
+  						bandwitdthButton();
   					break;
   					case KEY2:
-  						SI4735_seekNextStation();
+  						if (radioMode == FMm) {
+  							curFrec = SI4735_seekNextStation();
+  						} else {
+  							bandUp();
+  						}
   					break;
   					case KEY3:
-  						SI4735_seekPreviousStation();
-  						//curFrec = SI4735_getFrequency();
-  						//putMsg(msg_encCounter);
-  					/*{
-  						SI4735_setVolume(aVol);
-  						//
-						#ifdef SET_ST_IPS
-  							updateBar(&pbar, aVol);
-  							HAL_Delay(1);
-  							//
-  							int dl = sprintf(sline, "volume: %u", aVol);
-  							ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
-  						    			pbar.y1 + 6,
-  										sline,
-  										*tFont,
-  										invColor(BLACK),
-										invColor(WHITE));
-  							//
-						#endif
-  					}*/
+  						if (radioMode == FMm) {
+  							curFrec = SI4735_seekPreviousStation();
+  						} else {
+  							bandDown();
+  						}
   					break;
   				}
-  				if (keyNumber != KEY1) {
+  				if (keyNumber != NONE) {
+  					HAL_Delay(2);
   					putMsg(msg_encCounter);
-  					curFrec = SI4735_getFrequency();
   				}
   				keyNumber = NONE;
   			break;
@@ -660,7 +1227,7 @@ int main(void)
   				radioSNR = SI4735_getCurrentSNR();
   				radioRSSI = SI4735_getCurrentRSSI();
 				#ifdef SET_ST_IPS
-  					sprintf(sline, " %s  SNR:", rModes[radioMode]);
+  					sprintf(sline, " %s SNR:", bandModeDesc[radioMode]);
   					if (radioSNR < 10) strcat(sline, " ");
   					sprintf(sline+strlen(sline), "%u RSSI:", radioSNR);
   					if (radioRSSI < 10) strcat(sline, " ");
@@ -672,7 +1239,7 @@ int main(void)
 									invColor(GREEN),
 									invColor(BLUE));
 				#endif
-  				HAL_Delay(1);
+  				//HAL_Delay(1);
   			break;
   			case msg_print:
   				if (Report(NULL, false, "%s", buf)) putMsg(msg_print);
@@ -980,9 +1547,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = MIN_ENC_VALUE;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 512;
+  htim4.Init.Period = ENC_PERIOD;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
@@ -1081,13 +1648,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, OLED_CS_Pin|OLED_DC_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED1_Pin|ENC_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LED1_Pin|ENC_LED_Pin|LED_ERROR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, SI_RST_Pin|OLED_RST_Pin, GPIO_PIN_SET);
@@ -1098,19 +1662,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LED_ERROR_Pin */
-  GPIO_InitStruct.Pin = LED_ERROR_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_ERROR_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pin : KBD_INT_Pin */
+  GPIO_InitStruct.Pin = KBD_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(KBD_INT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : OLED_CS_Pin OLED_DC_Pin */
-  GPIO_InitStruct.Pin = OLED_CS_Pin|OLED_DC_Pin;
+  /*Configure GPIO pin : OLED_DC_Pin */
+  GPIO_InitStruct.Pin = OLED_DC_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(OLED_DC_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin SI_RST_Pin OLED_RST_Pin */
   GPIO_InitStruct.Pin = LED1_Pin|SI_RST_Pin|OLED_RST_Pin;
@@ -1129,8 +1692,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = ENC_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(ENC_LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LED_ERROR_Pin */
+  GPIO_InitStruct.Pin = LED_ERROR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_ERROR_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI1_IRQn, 7, 0);
@@ -1141,6 +1711,9 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI3_IRQn, 7, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 7, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
@@ -1304,7 +1877,9 @@ void floatPart(float val, s_float_t *part)
 //------------------------------------------------------------------------------------------
 uint8_t Report(const char *tag, bool addTime, const char *fmt, ...)
 {
-//HAL_StatusTypeDef er = HAL_OK;
+#ifndef SET_STATIC_MEM
+	HAL_StatusTypeDef er = HAL_OK;
+#endif
 va_list args;
 size_t len = MAX_UART_BUF;
 int dl = 0;
@@ -1347,7 +1922,7 @@ int dl = 0;
 	} else er = HAL_ERROR;
 #endif
 
-	//if (er != HAL_OK) errLedOn(NULL);
+	if (er != HAL_OK) errLedOn(NULL);
 
 	return 0;
 }
@@ -1392,11 +1967,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 						restart_flag = 1;
 						putMsg(msg_rst);
 					}
-				} else if (strstr(RxBuf, "dbg_on")) {//key_3
+				} else
+#ifdef SET_DBG_INFO
+					if (strstr(RxBuf, "dbg_on")) {//key_3
 					outDebug = 1;
 				} else if (strstr(RxBuf, "dbg_off")) {//key_4
 					outDebug = 0;
-				} else if (strstr(RxBuf, "clr")) {
+				} else
+#endif
+					if (strstr(RxBuf, "clr")) {
 					devError = 0;
 					HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
 				} else if (strstr(RxBuf, "CLR")) {
@@ -1405,6 +1984,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 					HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
 					//putMsg(msg_errCounter);
 				}
+#ifdef SET_KBD
+				else if (strstr(RxBuf, "kbd")) {
+					kbdEnable = true;
+				}
+#endif
 			}
 			rx_uk = 0;
 			memset(RxBuf, 0, sizeof(RxBuf));
@@ -1420,13 +2004,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		HalfSecCounter++;//+10ms
 
-		if (!(HalfSecCounter % _400ms)) {
+		if (!(HalfSecCounter % _350ms)) {
 			Encoder = (TIM4->CNT) >> 1;
 			if (lastEncoder != Encoder) {
 				evt_t ev = msg_none;
-				if (!lastEncoder && (Encoder == MAX_ENC_VALUE)) ev = msg_decFrec;//dec
+				if ((lastEncoder== MIN_ENC_VALUE) && (Encoder == MAX_ENC_VALUE)) ev = msg_decFrec;//dec
 				else
-				if ((lastEncoder == MAX_ENC_VALUE) && !Encoder) ev = msg_incFrec;//inc
+				if ((lastEncoder == MAX_ENC_VALUE) && (Encoder == MIN_ENC_VALUE)) ev = msg_incFrec;//inc
 				else
 				if (lastEncoder < Encoder) ev = msg_incFrec;//inc
 				else
@@ -1521,8 +2105,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 					bt1tik = 0;
 					keyFlag = true;
 					keyNumber = KEY1;
-					radioMode++;
-					radioMode &= 3;
+
+					//bandIdx++;
+					//if (bandIdx > lastBand) bandIdx = 0;
+					//radioModeNew = bandIdx;
+					radioMode = (radioMode + 1) & 3;
 					radioModeNew = rcModes[radioMode];
 				}
 			}
@@ -1536,11 +2123,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt2tik) {
 				if ((HAL_GetTick() - bt2tik) > TIME_btKeyPressed) {
 					bt2tik = 0;
-					if (aVol < MAX_aVol) {
-						aVol++;
-						keyFlag = true;
-						keyNumber = KEY2;
-					}
+					keyFlag = true;
+					keyNumber = KEY2;
 				}
 			}
 		}
@@ -1553,16 +2137,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt3tik) {
 				if ((HAL_GetTick() - bt3tik) > TIME_btKeyPressed) {
 					bt3tik = 0;
-					if (aVol > MIN_aVol) {
-						aVol--;
-						keyFlag = true;
-						keyNumber = KEY3;
-					}
+					keyFlag = true;
+					keyNumber = KEY3;
 				}
 			}
 		}
 		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, !bt3State);
 	}
+#ifdef SET_KBD
+	else if (GPIO_Pin == KBD_INT_Pin) {
+		if (kbdEnable) {
+			//HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
+			if ((HAL_GetTick() - kbd1tik) > 50) {
+				putMsg(msg_kbd);
+				kbd1tik = HAL_GetTick();
+			}
+		}
+	}
+#endif
 
 	if (keyFlag) putMsg(msg_keyEvent);
 

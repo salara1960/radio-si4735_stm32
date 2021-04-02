@@ -7,6 +7,7 @@
 
 #include "main.h"
 
+
 #define POWER_UP_FM 0  // FM
 #define POWER_UP_AM 1  // AM and SSB (if patch applyed)
 #define POWER_UP_SW 2
@@ -1070,6 +1071,7 @@ uint8_t currentAudioMode;// = SI473X_ANALOG_AUDIO; //!< Current audio mode used 
 uint8_t currentSsbStatus;// = 0;// 1 = LSB and 2 = USB; 0 = AM, FM or WB
 int8_t audioMuteMcuPin;// = -1;
 
+
 /**
  * @brief Interrupt Function
  *
@@ -2064,8 +2066,8 @@ si47x_response_status currentStatus;
     	SI4735_seekStationProgress0(NULL, SEEK_DOWN);
     };
 
-    void SI4735_seekNextStation();
-    void SI4735_seekPreviousStation();
+    uint16_t SI4735_seekNextStation();
+    uint16_t SI4735_seekPreviousStation();
 
 
 
@@ -2204,7 +2206,7 @@ si47x_response_status currentStatus;
     void SI4735_getNext4Block(char *);
 
     void SI4735_setSSBBfo(int offset);
-    void SI4735_SI4735_setSSBConfig(uint8_t AUDIOBW, uint8_t SBCUTFLT, uint8_t AVC_DIVIDER, uint8_t AVCEN, uint8_t SMUTESEL, uint8_t DSP_AFCDIS);
+    void SI4735_setSSBConfig(uint8_t AUDIOBW, uint8_t SBCUTFLT, uint8_t AVC_DIVIDER, uint8_t AVCEN, uint8_t SMUTESEL, uint8_t DSP_AFCDIS);
     void SI4735_setSSB1(uint16_t fromFreq, uint16_t toFreq, uint16_t intialFreq, uint16_t step, uint8_t usblsb);
     void SI4735_setSSB0(uint8_t usblsb);
     void SI4735_setSSBAudioBandwidth(uint8_t AUDIOBW);
@@ -2226,6 +2228,8 @@ si47x_response_status currentStatus;
     void SI4735_loadPatch(const uint8_t *ssb_patch_content, const uint16_t ssb_patch_content_size, uint8_t ssb_audiobw);
     si4735_eeprom_patch_header SI4735_downloadPatchFromEeprom(int eeprom_i2c_address);
     void SI4735_ssbPowerUp();
+
+    void SI4735_loadSSB(uint8_t bwx);
 
     /**
      * @ingroup group06 Si47XX device Power Up

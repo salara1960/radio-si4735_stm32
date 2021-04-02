@@ -185,7 +185,7 @@
 								<option id="fr.ac6.managedbuild.tool.gnu.cross.c.linker.script.1764735690" name="Linker Script (-T)" superClass="fr.ac6.managedbuild.tool.gnu.cross.c.linker.script" useByScannerDiscovery="false" value="../STM32F103C8Tx_FLASH.ld" valueType="string"/>
 								<option id="gnu.c.link.option.libs.974277919" name="Libraries (-l)" superClass="gnu.c.link.option.libs" useByScannerDiscovery="false"/>
 								<option id="gnu.c.link.option.paths.1198223825" name="Library search path (-L)" superClass="gnu.c.link.option.paths" useByScannerDiscovery="false"/>
-								<option id="gnu.c.link.option.ldflags.260836398" name="Linker flags" superClass="gnu.c.link.option.ldflags" useByScannerDiscovery="false" value="-specs=nosys.specs -specs=nano.specs" valueType="string"/>
+								<option id="gnu.c.link.option.ldflags.260836398" name="Linker flags" superClass="gnu.c.link.option.ldflags" useByScannerDiscovery="false" value="-specs=nano.specs" valueType="string"/>
 								<option id="gnu.c.link.option.other.623125942" name="Other options (-Xlinker [option])" superClass="gnu.c.link.option.other" useByScannerDiscovery="false"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.1720187928" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
@@ -233,7 +233,7 @@
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Debug">
-			<resource resourceType="PROJECT" workspacePath="stm32_ips"/>
+			<resource resourceType="PROJECT" workspacePath="/stm32_ips"/>
 		</configuration>
 		<configuration configurationName="Release"/>
 	</storageModule>

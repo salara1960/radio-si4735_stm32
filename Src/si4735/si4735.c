@@ -4,6 +4,8 @@
 
 #ifdef SET_SI4735
 
+#include "patch_init.h" // SSB patch for whole SSBRX initialization string
+
 
 /**
  * @brief Construct a new SI4735::SI4735
@@ -74,9 +76,11 @@ si473x_powerup powerUp;
 uint8_t Volume = 63; //!< Stores the current vlume setup (0-63).
 
 uint8_t currentAudioMode = SI473X_ANALOG_AUDIO; //!< Current audio mode used (ANALOG or DIGITAL or both)
-uint8_t currentSsbStatus = 0;// 1 = LSB and 2 = USB; 0 = AM, FM or WB
+uint8_t currentSsbStatus = 1;// 1 = LSB and 2 = USB; 0 = AM, FM or WB
 int8_t audioMuteMcuPin = -1;
 
+
+const uint16_t size_content = sizeof(ssb_patch_content); // see ssb_patch_content in patch_full.h or patch_init.h
 
 //---------------------------------------------------------------------------------------------
 void SI4735_write(uint8_t *data, size_t len)
@@ -550,16 +554,15 @@ void SI4735_getFirmware(void)
     Wire.endTransmission();*/
     uint8_t byte = GET_REV;
     SI4735_write(&byte, 1);
-    /*do
+    do
     {
     	SI4735_waitToSend();
         // Request for 9 bytes response
-        Wire.requestFrom(deviceAddress, 9);
-        for (int i = 0; i < 9; i++)
-            firmwareInfo.raw[i] = Wire.read();
-    } while (firmwareInfo.resp.ERR);*/
-    SI4735_waitToSend();
-    SI4735_read(firmwareInfo.raw, 9);
+        //Wire.requestFrom(deviceAddress, 9);
+        //for (int i = 0; i < 9; i++) firmwareInfo.raw[i] = Wire.read();
+    	SI4735_read(firmwareInfo.raw, 9);
+    } while (firmwareInfo.resp.ERR);
+
 }
 
 /**
@@ -1314,11 +1317,11 @@ void SI4735_seekStation(uint8_t SEEKUP, uint8_t WRAP)
  *
  * @see seekStation, seekStationUp, seekStationDown, seekPreviousStation, seekStationProgress
  */
-void SI4735_seekNextStation()
+uint16_t SI4735_seekNextStation()
 {
 	SI4735_seekStation(1, 1);
-    _delay(maxDelaySetFrequency);
-    SI4735_getFrequency();
+    _delay(maxDelaySetFrequency << 1);
+    return SI4735_getFrequency();
 }
 
 /**
@@ -1329,11 +1332,11 @@ void SI4735_seekNextStation()
  * @details The main difference is the method used to look for a station.
  * @see seekStation, seekStationUp, seekStationDown, seekPreviousStation, seekStationProgress
  */
-void SI4735_seekPreviousStation()
+uint16_t SI4735_seekPreviousStation()
 {
 	SI4735_seekStation(0, 1);
-    _delay(maxDelaySetFrequency);
-    SI4735_getFrequency();
+    _delay(maxDelaySetFrequency << 1);
+    return SI4735_getFrequency();
 }
 
 /**
@@ -3037,13 +3040,13 @@ si47x_firmware_query_library SI4735_queryLibraryId()
     uint8_t dat[] = {POWER_UP, 0x1f, SI473X_ANALOG_AUDIO};
     SI4735_write(dat, sizeof(dat));
 
-    /*do
+    do
     {
     	SI4735_waitToSend();
-        Wire.requestFrom(deviceAddress, 8);
-        for (int8_t i = 0; i < 8; i++) libraryID.raw[i] = Wire.read();
+        //Wire.requestFrom(deviceAddress, 8);
+        //for (int8_t i = 0; i < 8; i++) libraryID.raw[i] = Wire.read();
+    	SI4735_read(libraryID.raw, 8);
     } while (libraryID.resp.ERR); // If error found, try it again.*/
-    SI4735_read(libraryID.raw, 8);
 
     _delay(3);//delayMicroseconds(2500);
 
@@ -3148,23 +3151,25 @@ void SI4735_ssbPowerUp()
 bool SI4735_downloadPatch(const uint8_t *ssb_patch_content, const uint16_t ssb_patch_content_size)
 {
 
-/*
-    uint8_t content;
-    register int i, offset;
+/**/
+    //uint8_t content;
+    int offset;//, i = 0;
     // Send patch to the SI4735 device
     for (offset = 0; offset < (int)ssb_patch_content_size; offset += 8) {
 
-        Wire.beginTransmission(deviceAddress);
-        for (i = 0; i < 8; i++) {
-            content = pgm_read_byte_near(ssb_patch_content + (i + offset));
-            Wire.write(content);
-        }
-        Wire.endTransmission();
+    	//Wire.beginTransmission(deviceAddress);
+    	//for (i = 0; i < 8; i++) {
+    		//content = pgm_read_byte_near(ssb_patch_content + (i + offset));
+    		//Wire.write(content);
+    	//}
+    	//Wire.endTransmission();
+
+    	SI4735_write((uint8_t *)(ssb_patch_content + offset), 8);
 
 
         // Testing download performance
         // approach 1 - Faster - less secure (it might crash in some architectures)
-        delayMicroseconds(MIN_DELAY_WAIT_SEND_LOOP); // Need check the minimum value
+    	_delay(1);//delayMicroseconds(MIN_DELAY_WAIT_SEND_LOOP); // Need check the minimum value
 
         // approach 2 - More control. A little more secure than approach 1
 
@@ -3177,7 +3182,7 @@ bool SI4735_downloadPatch(const uint8_t *ssb_patch_content, const uint16_t ssb_p
     }
 
     _delay(1);//delayMicroseconds(250);
-*/
+/**/
 
     return true;
 }
@@ -3478,7 +3483,23 @@ void SI4735_setFrequencyNBFM(uint16_t freq)
     currentWorkFrequency = freq; // check it
     _delay(250); // For some reason I need to delay here.
 }
+//-------------------------------------------------------------------------------------------------
+void SI4735_loadSSB(uint8_t bwIdxSSB)
+{
+	SI4735_queryLibraryId(); // Is it really necessary here? I will check it.
+	SI4735_patchPowerUp();
+	_delay(50);
+	SI4735_downloadPatch(ssb_patch_content, size_content);
+	// Parameters
+	// AUDIOBW - SSB Audio bandwidth; 0 = 1.2kHz (default); 1=2.2kHz; 2=3kHz; 3=4kHz; 4=500Hz; 5=1kHz;
+	// SBCUTFLT SSB - side band cutoff filter for band passand low pass filter ( 0 or 1)
+	// AVC_DIVIDER  - set 0 for SSB mode; set 3 for SYNC mode.
+	// AVCEN - SSB Automatic Volume Control (AVC) enable; 0=disable; 1=enable (default).
+	// SMUTESEL - SSB Soft-mute Based on RSSI or SNR (0 or 1).
+	// DSP_AFCDIS - DSP AFC Disable or enable; 0=SYNC MODE, AFC enable; 1=SSB MODE, AFC disable.
+	SI4735_setSSBConfig(bwIdxSSB, 1, 0, 1, 0, 1);
 
+}
 
 
 #endif
