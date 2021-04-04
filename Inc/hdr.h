@@ -19,7 +19,7 @@
 #endif
 
 //#define SET_OLED_SPI
-//#define SET_OLED_I2C
+
 
 #define SET_SI4735
 #ifdef SET_SI4735
@@ -27,6 +27,9 @@
 #endif
 
 //#define SET_KBD
+
+#define SET_IRED
+
 
 
 

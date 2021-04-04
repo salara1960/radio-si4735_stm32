@@ -10,7 +10,7 @@ typedef struct {
 } FontDef;
 
 //Font lib.
-const FontDef Font_7x10;
+//const FontDef Font_7x10;
 const FontDef Font_11x18;
 const FontDef Font_16x26;
 

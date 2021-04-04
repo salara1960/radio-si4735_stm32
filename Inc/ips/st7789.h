@@ -229,6 +229,7 @@ char *mkLineCenter(char *str, uint16_t width);
 void mkFace(area_t *rc);
 uint16_t updateFace(area_t *rc, uint16_t x, uint16_t cf);
 void updateBar(area_t *rc, uint16_t val);
+void clearBar(area_t *rc, uint16_t fon);
 //void ST7789_setBrightness(uint8_t br);
 
 

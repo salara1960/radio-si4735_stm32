@@ -992,6 +992,46 @@ uint16_t sx = rc->x1 + 2;
 
 
 }
+//-------------------------------------------------------------------------------------
+void clearBar(area_t *rc, uint16_t fon)
+{
+uint16_t bc = invColor(fon);
+uint16_t h = rc->y2 - rc->y1 - 2;
+uint16_t sx = rc->x1 + 2;
+
+    uint16_t w = ST7789_WIDTH - rc->x1 - 6;
+    int len = w << 1;
+
+    if (!pbar_buf) {
+    	pbar_buf = (uint8_t *)calloc(1, w + 2);
+    	if (!pbar_buf) {
+    		devError |= devMem;
+    		return;
+    	}
+    }
+
+    uint32_t j = 0;
+    while (j < len) {
+    	pbar_buf[j++] = bc >> 8;
+    	pbar_buf[j++] = bc & 0xff;
+    }
+
+    //ST7789_Select();
+    HAL_StatusTypeDef rt = HAL_OK;
+    for (j = rc->y1 + 1; j <= rc->y1 + 1 + h; j++) {
+    	while (HAL_SPI_GetState(portOLED) != HAL_SPI_STATE_READY);
+    	ST7789_SetAddressWindow(sx, j, sx + w, j);
+    	ST7789_DC_Set();
+    	rt |= HAL_SPI_Transmit_DMA(portOLED, pbar_buf, len);
+    }
+    if (rt != HAL_OK) {
+    	devError |= devSPI;
+    	cnt_err++;
+    } else {
+    	devError &= ~devSPI;
+    }
+
+}
 //--------------------------------------------------------------------------------------
 void ST7789_setScrollArea(uint16_t tfa, uint16_t bfa)
 {

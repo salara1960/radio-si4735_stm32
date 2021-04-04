@@ -53,7 +53,9 @@
 //const char *version = "Version 1.5.1 (31.03.2021)";
 //const char *version = "Version 1.5.2 (31.03.2021)";// add mpr121
 //const char *version = "Version 1.5.3 (01.04.2021)";
-const char *version = "Version 1.6 (02.04.2021)";//temporarily remove the module KBD mpr121
+//const char *version = "Version 1.6 (02.04.2021)";//temporarily remove the module KBD mpr121
+//const char *version = "Version 1.7 (03.04.2021)";// add infrared control support
+const char *version = "Version 1.7.1 (04.04.2021)";
 
 
 /* USER CODE END PD */
@@ -74,6 +76,7 @@ SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 UART_HandleTypeDef huart1;
@@ -90,7 +93,7 @@ uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
-volatile time_t epoch = 1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
+volatile time_t epoch = 1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -107,24 +110,22 @@ volatile uint8_t uRxByte = 0;
 uint8_t uartRdy = 1;
 uint8_t devError = 0;
 uint32_t tikStart = 0;
+int tdl = 0;
 
-#if defined(SET_ST_IPS) || defined(SET_OLED_SPI) || defined(SET_OLED_I2C)
+#if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
 
-	#ifdef SET_OLED_I2C
-		I2C_HandleTypeDef *portOLED = &hi2c2;
-	#else
-		SPI_HandleTypeDef *portOLED = &hspi1;
-	#endif
+	SPI_HandleTypeDef *portOLED = &hspi1;
 
 	uint32_t spiRdy = 1;
 	uint32_t spi_cnt = 0;
 	char sline[128] = {0};
+	char stline[40] = {0};
 	uint16_t lcorX = 0;
 
 	#ifdef SET_ST_IPS
 		const FontDef *fntKey = &Font_16x26;
 		const FontDef *tFont = &Font_11x18;
-		const FontDef *lFont = &Font_7x10;
+		//const FontDef *lFont = &Font_7x10;
 	#endif
 
 #endif
@@ -161,9 +162,35 @@ bool kbdInitOk = false;
 int16_t kbdAddr = 0;
 bool kbdEnable = false;
 volatile uint32_t kbdCnt = 0;
-#ifdef SET_KBD
-	I2C_HandleTypeDef *portKBD = &hi2c2;
-	uint32_t kbd1tik = 0;
+
+#ifdef SET_IRED
+
+	const one_key_t keyAll[MAX_IRED_KEY] = {
+			{"irCH-",   0xe318261b},
+			{"irCH",    0x00511dbb},
+			{"irCH+",   0xee886d7f},
+			{"irLEFT",  0x52a3d41f},
+			{"irRIGHT", 0xd7e84b1b},
+			{"irSP",    0x20fe4dbb},
+			{"ir-",     0xf076c13b},
+			{"ir+",     0xa3c8eddb},
+			{"irEQ",    0xe5cfbd7f},
+			{"ir100+",  0x97483bfb},
+			{"ir200+",  0xf0c41643},
+			{"ir0",     0xc101e57b},
+			{"ir1",     0x9716be3f},
+			{"ir2",     0x3d9ae3f7},
+			{"ir3",     0x6182021b},
+			{"ir4",     0x8c22657b},
+			{"ir5",     0x488f3cbb},
+			{"ir6",     0x0449e79f},
+			{"ir7",     0x32c6fdf7},
+			{"ir8",     0x1bc0157b},
+			{"ir9",     0x3ec3fc1b}
+	};
+
+	TIM_HandleTypeDef *portIRED = &htim3; // таймер для приёма
+
 #endif
 
 #ifdef SET_SI4735
@@ -206,7 +233,7 @@ volatile uint32_t kbdCnt = 0;
 	uint8_t agcNdx = 0;
 
 	Band band[] = {
-	  {FM_BAND_TYPE, 6400, 10800, 10390, 10},
+	  {FM_BAND_TYPE, 7200, 10800, 10390, 10},
 	  {LW_BAND_TYPE, 100, 510, 300, 1},
 	  {MW_BAND_TYPE, 520, 1720, 810, 10},
 	  {SW_BAND_TYPE, 1800, 3500, 1900, 1}, // 160 meters
@@ -231,6 +258,36 @@ volatile uint32_t kbdCnt = 0;
 	const int lastBand = (sizeof band / sizeof(Band)) - 1;
 	int bandIdx = 0;
 
+	fm_station_t fm_station[] = {
+			{0, "Unknown"},
+			{7210, "Shanson"},
+			{9360, "Radio 7"},
+			{9400, "ComedyRadio"},
+			{9510, "VestiFM"},
+			{9550, "RetroFM"},
+			{9630, "RussianRadio"},
+			{9700, "RadioBooks"},
+			{9770, "SilverRain"},
+			{9850, "RadioEnergy"},
+			{9950, "RadioZvezda"},
+			{10010, "AutoRadio"},
+			{10050, "RussianEdge"},
+			{10090, "Monte-Karlo"},
+			{10130, "NasheRadio"},
+			{10180, "BusinessFM"},
+			{10250, "RadioMajak"},
+			{10290, "LoveRadio"},
+			{10340, "Studio21"},
+			{10390, "RadioRussia"},
+			{10450, "Europe+"},
+			{10520, "Baltic+"},
+			{10590, "DorohznoeRadio"},
+			{10640, "RadioMaxim"},
+			{10720, "RadioKP"}
+	};
+	const int lastStation = (sizeof fm_station / sizeof(fm_station_t)) - 1;
+	int stationIdx = 0;
+
 #endif
 
 /* USER CODE END PV */
@@ -246,8 +303,11 @@ static void MX_SPI1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
+uint32_t get_tmr10(uint32_t ms);
+bool check_tmr10(uint32_t ms);
 uint32_t get_tmr(uint32_t sec);
 bool check_tmr(uint32_t sec);
 void floatPart(float val, s_float_t *part);
@@ -338,309 +398,6 @@ evt_t ret = msg_empty;
 
 	return ret;
 }
-//-------------------------------------------------------------------------------------------
-#ifdef SET_KBD
-/*
-void kbdReadBuf(uint8_t from, uint8_t *buf, size_t len)
-{
-	HAL_I2C_Master_Transmit(portKBD, kbdAddr << 1, &from, 1, min_wait_ms);
-
-	HAL_I2C_Master_Receive(portKBD, kbdAddr << 1, buf, len, max_wait_ms);
-}
-*/
-//-------------------------------------------------------------------------------------------
-void kbdWriteRegs(uint8_t reg, uint8_t *data, size_t len)
-{
-	if (HAL_I2C_Mem_Write(portKBD, kbdAddr << 1, reg, sizeof(reg), data, len, min_wait_ms) != HAL_OK) {
-		devError |= devI2C;
-		cnt_err++;
-	} else {
-		devError &= ~devI2C;
-	}
-}
-//-------------------------------------------------------------------------------------------
-/*
-uint8_t kbdReadReg(uint8_t reg)
-{
-	uint8_t ret = 0;
-
-	if (HAL_I2C_Mem_Read(portKBD, kbdAddr << 1, reg, 1, &ret, 1, min_wait_ms) != HAL_OK) {
-		devError |= devI2C;
-		cnt_err++;
-	} else {
-		devError &= ~devI2C;
-	}
-
-	return ret;
-}
-*/
-//-------------------------------------------------------------------------------------------
-void kbdReadRegs(uint8_t reg, uint8_t *data, size_t len)
-{
-	if (HAL_I2C_Mem_Read(portKBD, kbdAddr << 1, reg, 1, data, len, max_wait_ms) != HAL_OK) {
-		devError |= devI2C;
-		cnt_err++;
-	} else {
-		devError &= ~devI2C;
-	}
-}
-//-------------------------------------------------------------------------------------------
-bool KBD_getAddr(int16_t *addr)
-{
-	int16_t i = 0, adr = KBD_ADDR1;
-	uint8_t byte = 0x63;
-	for (i = 0; i < 4; i++) {
-		adr += i;
-		if (HAL_I2C_Mem_Write(portKBD, adr << 1, SRST, 1, &byte, 1, max_wait_ms) == HAL_OK) {
-			*addr = adr;
-			return true;
-		}
-	}
-    return false;
-}
-//-------------------------------------------------------------------------------------------
-bool kbdInit()
-{
-	bool success = true;
-	uint8_t ec;
-  	uint8_t reg_value = 0;
-  	uint8_t byte;
-/*
-void mpr121QuickConfig(void)
-{
-
-	 mpr121_irqInit();//interrupt set
-  // Section A
-  // This group controls filtering when data is > baseline.
-  mpr121Write(MHD_R, 0x01);//0x2B
-  mpr121Write(NHD_R, 0x01);//
-  mpr121Write(NCL_R, 0x00);//
-  mpr121Write(FDL_R, 0x00);//
-
-  // Section B
-  // This group controls filtering when data is < baseline.
-  mpr121Write(MHD_F, 0x01);
-  mpr121Write(NHD_F, 0x01);
-  mpr121Write(NCL_F, 0xFF);
-  mpr121Write(FDL_F, 0x02);//0x32
-
-  // Section C
-  // This group sets touch and release thresholds for each electrode
-  mpr121Write(ELE0_T, TOU_THRESH);
-  mpr121Write(ELE0_R, REL_THRESH);
-  mpr121Write(ELE1_T, TOU_THRESH);
-  mpr121Write(ELE1_R, REL_THRESH);
-  mpr121Write(ELE2_T, TOU_THRESH);
-  mpr121Write(ELE2_R, REL_THRESH);
-  mpr121Write(ELE3_T, TOU_THRESH);
-  mpr121Write(ELE3_R, REL_THRESH);
-  mpr121Write(ELE4_T, TOU_THRESH);
-  mpr121Write(ELE4_R, REL_THRESH);
-  mpr121Write(ELE5_T, TOU_THRESH);
-  mpr121Write(ELE5_R, REL_THRESH);
-  mpr121Write(ELE6_T, TOU_THRESH);
-  mpr121Write(ELE6_R, REL_THRESH);
-  mpr121Write(ELE7_T, TOU_THRESH);
-  mpr121Write(ELE7_R, REL_THRESH);
-  mpr121Write(ELE8_T, TOU_THRESH);
-  mpr121Write(ELE8_R, REL_THRESH);
-  mpr121Write(ELE9_T, TOU_THRESH);
-  mpr121Write(ELE9_R, REL_THRESH);
-  mpr121Write(ELE10_T, TOU_THRESH);
-  mpr121Write(ELE10_R, REL_THRESH);
-  mpr121Write(ELE11_T, TOU_THRESH);
-  mpr121Write(ELE11_R, REL_THRESH);
-
-  // Section D
-  // Set the Filter Configuration
-  // Set ESI2
-  mpr121Write(FIL_CFG, 0x04);//0x5D
-
-  // Section E
-  // Electrode Configuration
-  // Enable 6 Electrodes and set to run mode
-  // Set ELE_CFG to 0x00 to return to standby mode
-  mpr121Write(ELE_CFG, 0x0C);//0x5E	// Enables all 12 Electrodes
-  //mpr121Write(ELE_CFG, 0x06);//0x5E		// Enable first 6 electrodes
-
-  // Section F
-  // Enable Auto Config and auto Reconfig
-  ////mpr121Write(ATO_CFG0, 0x0B);
-  ////mpr121Write(ATO_CFGU, 0xC9);	// USL = (Vdd-0.7)/vdd*256 = 0xC9 @3.3V   mpr121Write(ATO_CFGL, 0x82);	// LSL = 0.65*USL = 0x82 @3.3V
-  ////mpr121Write(ATO_CFGT, 0xB5);	// Target = 0.9*USL = 0xB5 @3.3V
-
-}
-*/
-
-	// soft reset
-	//write_register(SRST, 0x63);
-	//byte = 0x63;
-	//kbdWriteRegs(SRST, &byte, 1);
-	//HAL_Delay(1);
-/*
-	// read AFE Configuration 2
-	//read_register(AFE2, &reg_value);
-	kbdReadRegs(AFE2, &reg_value, 1);
-	// check default value
-	if (reg_value != 0x24) {
-		//reg_value = 0x24;
-		//kbdWriteRegs(AFE2, &reg_value, 1);
-		return false;
-	}
-*/
-	// read Touch Status register
-	//read_register(TS2, &reg_value);
-	kbdReadRegs(TS2, &reg_value, 1);
-	if (reg_value & 0x80) {//clear OVCF
-		reg_value = 0x80;
-		kbdWriteRegs(TS2, &reg_value, 1);
-
-		kbdReadRegs(TS2, &reg_value, 1);
-		if (reg_value & 0x80) {
-			return false;
-		}
-	}
-
-	// if no previous error
-	//if (success) {
-		byte = 0;
-		kbdWriteRegs(ECR, &byte, 1);// turn off all electrodes to stop
-
-		uint8_t data[] = {
-			1, 1, 0x10, 0x20, 1, 1, 0x10, 0x20,
-			1, 0x10, 0xFF, 0x0F, 0x0F, 0, 0, 1,
-			1, 0xFF, 0xFF, 0, 0, 0
-		};
-		kbdWriteRegs(MHDR, data, sizeof(data));//0x2B ... 0x40
-
-		data[0] = 0x11;
-		data[1] = 0xD0;//0x5C - 16uA
-		data[2] = 0x14;//0x5D - Period set to 16 ms (Default)
-		kbdWriteRegs(DTR, data, 3);//0x5B ... 0x5D
-
-		memset(data, 0, 5);
-		kbdWriteRegs(ACCR0, data, 5);//0x7B ... 0x7F
-
-		byte = 0xCC;
-		kbdWriteRegs(ECR, &byte, 1);
-
-		// apply next setting for all electrodes
-		data[0] = 40;//5..0x30
-		data[1] = 20;
-		byte = E0TTH;
-		for (ec = 0; ec < NUM_OF_ELECTRODES; ec++) {
-			kbdWriteRegs(byte, data, 2);
-			byte += 2;
-		}
-
-		byte = 0x10;
-		kbdWriteRegs(ECR, &byte, 1);// enable electrodes and set the current to 16uA
-	//}
-
-	return success;
-}
-//-------------------------------------------------------------------------------------------
-uint16_t kbd_get_touch()// get touch status
-{
-	uint8_t data[2] = {0};
-	kbdReadRegs(TS1, data, 2);
-	/*if (data[1] & 0x80) {
-		uint8_t byte = 0x80;
-		kbdWriteRegs(TS2, &byte, 1);
-	}*/
-	uint16_t ret = data[1];
-	ret <<= 8;
-	ret |= data[0];
-
-	return ret;
-
-/*
-	//int tn = 0;
-	//for (int j = 0; j < NUM_OF_ELECTRODES - 1; j++) if ((ret & (1 << j))) tn++;
-
-	uint16_t key = 0;
-	//if (tn == 1) {
-		     if (ret & (1 << STAR))  key = 0x2a;//'*';
-		else if (ret & (1 << SEVEN)) key = 0x37;//'7';
-		else if (ret & (1 << FOUR))  key = 0x34;//'4';
-		else if (ret & (1 << ONE))   key = 0x31;//'1';
-		else if (ret & (1 << ZERO))  key = 0x30;//'0';
-		else if (ret & (1 << EIGHT)) key = 0x38;//'8';
-		else if (ret & (1 << FIVE))  key = 0x35;//'5';
-		else if (ret & (1 << TWO))   key = 0x32;//'2';
-		else if (ret & (1 << POUND)) key = 0x23;//'#';
-		else if (ret & (1 << NINE))  key = 0x39;//'9';
-		else if (ret & (1 << SIX))   key = 0x36;//'6';
-		else if (ret & (1 << THREE)) key = 0x33;//'3';
-	//}
-
-	return key;
-*/
-}
-
-/*
-char getPhoneNumber()
-{
-  int touchNumber;
-	int j;
-  uint16_t touchstatus;
-	char key=-1;
-  //Serial.println("Please Enter a phone number...");
-
-    //while(key_pressed);//用while读取会阻塞程序运行
-	if(key_pressed==0)//非阻塞方式
-	{
-	key_pressed=1;
-    touchNumber = 0;
-
-    touchstatus = mpr121Read(0x01) << 8;
-    touchstatus |= mpr121Read(0x00);
-
-    for (j=0; j<12; j++)  // Check how many electrodes were pressed
-    {
-      if ((touchstatus & (1<<j)))
-        touchNumber++;
-    }
-
-    if (touchNumber == 1)
-    {
-      if (touchstatus & (1<<STAR))
-        key = '*';
-      else if (touchstatus & (1<<SEVEN))
-        key = '7';
-      else if (touchstatus & (1<<FOUR))
-        key= '4';
-      else if (touchstatus & (1<<ONE))
-        key = '1';
-      else if (touchstatus & (1<<ZERO))
-        key= '0';
-      else if (touchstatus & (1<<EIGHT))
-        key = '8';
-      else if (touchstatus & (1<<FIVE))
-        key = '5';
-      else if (touchstatus & (1<<TWO))
-        key = '2';
-      else if (touchstatus & (1<<POUND))
-        key = '#';
-      else if (touchstatus & (1<<NINE))
-        key = '9';
-      else if (touchstatus & (1<<SIX))
-        key = '6';
-      else if (touchstatus & (1<<THREE))
-        key = '3';
-
-      //Serial.print(key[i]);
-
-    }
-    else if (touchNumber == 0);
-    else;
-      //Serial.println("Only touch ONE button!");
-	}
-		return key;
-}
-*/
-
-#endif
 //-------------------------------------------------------------------------------------------
 #ifdef SET_SI4735
 	void SI4735_RST_Clr()
@@ -878,6 +635,19 @@ char getPhoneNumber()
 		//showVolume();
 		_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
 	}
+	//
+	int StationID(const uint16_t freq)
+	{
+		int ret = -1, i = -1;
+		while (++i <= lastStation) {
+			if (freq == fm_station[i].freq) {
+				ret = i;
+				break;
+			}
+		}
+		if (ret == -1) ret = 0;
+		return ret;
+	}
 
 #endif
 //-------------------------------------------------------------------------------------------
@@ -920,6 +690,7 @@ int main(void)
   MX_TIM2_Init();
   MX_I2C2_Init();
   MX_TIM4_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -930,9 +701,6 @@ int main(void)
   	HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
   	HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
   	HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
-
-
-  	HAL_NVIC_DisableIRQ(EXTI4_IRQn);
 
     //start ADC1 + interrupt
     HAL_ADC_Start_IT(&hadc1);
@@ -946,12 +714,8 @@ int main(void)
   	set_Date((time_t)(++epoch));
     uint32_t pack_num = 0;
 
-#if defined(SET_ST_IPS) || defined(SET_OLED_SPI) || defined(SET_OLED_I2C)
-	#ifdef SET_OLED_I2C
-		portOLED = &hi2c2;
-	#else
-		portOLED = &hspi1;
-	#endif
+#if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
+	portOLED = &hspi1;
 #endif
 
 #if defined(SET_ST_IPS)
@@ -989,21 +753,6 @@ int main(void)
   	spi_ssd1306_pattern();//set any params for screen
   	//spi_ssd1306_invert();
   	spi_ssd1306_clear();//clear screen
-#elif defined(SET_OLED_I2C)
-  	//i2c_ssd1306_on(true);
-  	i2c_ssd1306_init();
-  	i2c_ssd1306_pattern();
-  	//i2c_ssd1306_invert();
-    i2c_ssd1306_clear();
-#endif
-
-
-#ifdef SET_KBD
-    kbdPresent = KBD_getAddr(&kbdAddr);
-    if (kbdPresent) {
-    	kbdInitOk = kbdInit();
-    	HAL_Delay(10);
-    }
 #endif
 
 
@@ -1029,13 +778,14 @@ int main(void)
     	//
     	//HAL_Delay(1);
     	//
-    	int dl = sprintf(sline, "volume: %u", aVol);
-    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - dl) >> 1) * tFont->width,
+    	stationIdx = StationID(curFrec);
+    	tdl = sprintf(stline, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
+    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
     			pbar.y1 + 6,
-				sline,
+				stline,
 				*tFont,
 				invColor(BLACK),
-				invColor(WHITE));
+				invColor(GREEN));
     	//
 	#endif
     }
@@ -1055,6 +805,13 @@ int main(void)
 			firmwareInfo.raw[6], firmwareInfo.raw[7],
 			firmwareInfo.raw[8]);
 
+
+#ifdef SET_IRED
+	uint32_t tmr_ired = 0;
+	enIntIRED();
+#endif
+
+
   	// start encoder's channels
   	HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
   	// start timer2 in interrupt mode
@@ -1065,13 +822,6 @@ int main(void)
 
     /* Infinite loop */
 
-  	#ifdef SET_KBD
-  	if (kbdPresent && kbdInitOk) {
-  		kbdEnable = true;
-  		HAL_NVIC_EnableIRQ(EXTI4_IRQn);
-  	}
-#endif
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -1081,32 +831,134 @@ int main(void)
 
   	evt_t evt = msg_none;
   	while (1) {
-	  //
+	    //
+#ifdef SET_IRED
+		if (!tmr_ired) {
+			if (decodeIRED(&results)) {
+				//tmr_ired = get_tmr10(_300ms);
+				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);//IRRED_LED();
+				int8_t kid = -1;
+				for (int8_t i = 0; i < MAX_IRED_KEY; i++) {
+					if (results.value == keyAll[i].code) {
+						kid = i;
+						break;
+					}
+				}
+				//
+				//
+				//
+				uint8_t ys = 0;
+				if (kid != -1) {
+					switch (kid) {
+						case key_ch_plus:
+							if (radioMode == FMm) {
+								curFrec = SI4735_seekNextStation();
+								ys = 1;
+							}
+						break;
+						case key_ch_minus:
+							if (radioMode == FMm) {
+								curFrec = SI4735_seekPreviousStation();
+								ys = 1;
+							}
+						break;
+						case key_100: break;
+						case key_200: break;
+						case key_minus:
+							volumeButton(0);
+							tdl = sprintf(stline, " Volume: %u ", aVol);
+							ys = 1;
+						break;
+						case key_plus:
+							volumeButton(1);
+							tdl = sprintf(stline, " Volume: %u ", aVol);
+							ys = 1;
+						break;
+						case key_left:
+							break;
+						case key_right:
+							break;
+						case key_sp:
+							if (stationIdx < lastStation) stationIdx++; else stationIdx = 1;
+							curFrec = fm_station[stationIdx].freq;
+							SI4735_setFrequency(curFrec);
+							HAL_Delay(10);
+							ys = 1;
+						break;
+						case key_0: break;
+						case key_1: break;
+						case key_2: break;
+						case key_3: break;//dbg_on
+						case key_4: break;//dbg_off
+						case key_ch: putMsg(msg_rst); break;//rst
+						case key_eq: break;//out
+					}
+					if (ys) {
+						stationIdx = StationID(curFrec);
+						tdl = sprintf(stline, " %s ", fm_station[stationIdx].name);
+						putMsg(msg_updateScr);
+					}
+				}
+				/*if (!ys) {
+					if (kid == -1) tdl = sprintf(stline, "CODE:%08lX", results.value);
+							  else tdl = sprintf(stline, "irKEY: %s", keyAll[kid].name);
+					clearBar(&pbar, GREEN);
+					ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
+								    			pbar.y1 + 6,
+												stline,
+												*tFont,
+												invColor(BLACK),
+												invColor(GREEN));
+				}*/
+				tmr_ired = get_tmr10(_200ms);
+			}
+		}
+		if (tmr_ired) {
+			if (check_tmr10(tmr_ired)) {
+				tmr_ired = 0;
+				resumeIRED();
+				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);//IRRED_LED();
+			}
+		}
+#endif
+  		//
   		evt = getMsg();
   		switch ((int)evt) {
-	  	  	//
-  			case msg_kbd:
-#ifdef SET_KBD
-  				kbdCnt++;
-  				if (kbdEnable) {
-  					//HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
-  					kbdCode = kbd_get_touch();
-  				}
-#endif
-  			break;
   			//
+  		    case msg_updateScr:
+  		    	//int ix = StationID(curFrec);
+  		    	//tdl = sprintf(sline, " %s ", fm_station[ix].name);
+  		    	clearBar(&pbar, GREEN);
+  		    	tdl = strlen(stline);
+  		    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
+  		    						pbar.y1 + 6,
+									stline,
+									*tFont,
+									invColor(BLACK),
+									invColor(GREEN));
+  		    	HAL_Delay(10);
+  		    	putMsg(msg_encCounter);
+  		    break;
   			case msg_incFrec:
   				if ((curFrec + stepFrec) <= maxFrec) {
   					SI4735_frequencyUp();//+stepFrec
   					curFrec += stepFrec;
-  					putMsg(msg_encCounter);
+  					int ix = StationID(curFrec);
+  					if (ix > 0) {
+  						tdl = sprintf(stline, " %s ", fm_station[ix].name);
+  						putMsg(msg_updateScr);
+  					} else putMsg(msg_encCounter);
   				}
   			break;
   			case msg_decFrec:
   				if ((curFrec - stepFrec) >= minFrec) {
   					SI4735_frequencyDown();//-stepFrec
   					curFrec -= stepFrec;
-  					putMsg(msg_encCounter);
+  					int ix = StationID(curFrec);
+  					if (ix > 0) {
+  						tdl = sprintf(stline, " %s ", fm_station[ix].name);
+  						putMsg(msg_updateScr);
+  					} else putMsg(msg_encCounter);
   				}
   			break;
   			case msg_encCounter:
@@ -1139,8 +991,6 @@ int main(void)
   				}
 #if defined(SET_ST_IPS)
   				ST7789_WriteString(2, fntKey->height + 1, mkLineCenter(sline, tFont->width), *tFont, invColor(GREEN), invColor(BLUE));
-#elif defined(SET_OLED_I2C)
-  				i2c_ssd1306_text_xy(sline, 1, 3);
 #elif defined(SET_OLED_SPI)
   				spi_ssd1306_text_xy(sline, 1, 3);
 #endif
@@ -1149,23 +999,20 @@ int main(void)
   				sec_to_str_time(get_tmr(0), buf);
 #if defined(SET_ST_IPS)
   				ST7789_WriteString(4, 0, buf, *fntKey, invColor(YELLOW), invColor(BLUE));
-#elif defined(SET_OLED_I2C)
-  				i2c_ssd1306_text_xy(buf, 2, 1);
 #elif defined(SET_OLED_SPI)
   				spi_ssd1306_text_xy(buf, 2, 1);
 #endif
-  				sprintf(buf+strlen(buf), " [%lu] devError(%lu): 0x%02X, Fifo: %d/%d, KBD: cnt=%lu code=%04X, Radio: mode=%s Frec=",
+  				sprintf(buf+strlen(buf), " [%lu] devError(%lu): 0x%02X, Fifo: %d/%d, Radio: mode=%s Frec=",
   					                   ++pack_num, cnt_err, devError,
 									   (int)cnt_evt, (int)max_evt,
-									   kbdCnt, kbdCode,
 									   bandModeDesc[radioMode & 3]);
   				if (radioMode == FMm)
-  					sprintf(buf+strlen(buf), "%u.%02u (%u.%u-%u.%u) MHz",
+  					sprintf(buf+strlen(buf), "%u.%02u (%u.%u-%u.%u) MHz,",
   							curFrec / 100, curFrec % 100,
 							minFrec / 100, minFrec % 100,
 							maxFrec / 100, maxFrec % 100);
   				else
-  					sprintf(buf+strlen(buf), "%u (%u-%u) KHz", curFrec, minFrec, maxFrec);
+  					sprintf(buf+strlen(buf), "%u (%u-%u) KHz,", curFrec, minFrec, maxFrec);
   				floatPart(dataADC, &vcc);
   				sprintf(buf+strlen(buf), " Volume=%u, Encoder: Pressed=%lu Counter=%lu, Volt:%u.%u\n",
 										aVol,
@@ -1529,6 +1376,51 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 359;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 4;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief TIM4 Initialization Function
   * @param None
   * @retval None
@@ -1662,11 +1554,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : KBD_INT_Pin */
-  GPIO_InitStruct.Pin = KBD_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(KBD_INT_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pin : IRED_Pin */
+  GPIO_InitStruct.Pin = IRED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(IRED_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : OLED_DC_Pin */
   GPIO_InitStruct.Pin = OLED_DC_Pin;
@@ -1711,9 +1603,6 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI3_IRQn, 7, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 7, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
@@ -1820,7 +1709,7 @@ void inc_secCounter()
 	secCounter++;
 }
 //-----------------------------------------------------------------------------
-uint64_t get_hsCounter()
+uint32_t get_hsCounter()
 {
 	return HalfSecCounter;
 }
@@ -1828,6 +1717,16 @@ uint64_t get_hsCounter()
 void inc_hsCounter()
 {
 	HalfSecCounter++;
+}
+//------------------------------------------------------------------------------------------
+uint32_t get_tmr10(uint32_t ms)
+{
+	return (get_hsCounter() + ms);
+}
+//------------------------------------------------------------------------------------------
+bool check_tmr10(uint32_t ms)
+{
+	return (get_hsCounter() >= ms ? true : false);
 }
 //------------------------------------------------------------------------------------------
 uint32_t get_tmr(uint32_t sec)
@@ -1984,11 +1883,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 					HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
 					//putMsg(msg_errCounter);
 				}
-#ifdef SET_KBD
-				else if (strstr(RxBuf, "kbd")) {
-					kbdEnable = true;
-				}
-#endif
 			}
 			rx_uk = 0;
 			memset(RxBuf, 0, sizeof(RxBuf));
@@ -2026,26 +1920,56 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);//set ON/OFF LED1
 			putMsg(msg_sec);
 		}
-
-		/*uint8_t yes = 0;
-		if (bt3tik) {
-			if ((HAL_GetTick() - bt3tik) > 1000) {
-				bt3tik = 0;//HAL_GetTick();
-				if (aVol > STEP_aVol) aVol -= STEP_aVol; else aVol = MIN_aVol + 1;
-				keyNumber = KEY3;
-				yes = 1;
-			}
-		}
-		if (bt2tik) {
-			if ((HAL_GetTick() - bt2tik) > 1000) {
-				bt2tik = 0;//HAL_GetTick();
-				if (aVol <= (MAX_aVol - STEP_aVol)) aVol += STEP_aVol; else aVol = MAX_aVol - 1;
-				keyNumber = KEY2;
-				yes = 1;
-			}
-		}
-		if (yes) putMsg(msg_keyEvent);*/
 	}
+	//
+#ifdef SET_IRED
+	else if (htim->Instance == TIM3) {
+		uint8_t irdata = RECIV_PIN; // пин для приёма
+		irparams.timer++;  // One more 50uS tick
+		if (irparams.rawlen >= RAWBUF) irparams.rcvstate = STATE_OVERFLOW;  // Buffer overflow
+
+		switch(irparams.rcvstate) {
+			case STATE_IDLE: // In the middle of a gap
+				if (irdata == MARK) {
+					if (irparams.timer < GAP_TICKS) { // Not big enough to be a gap.
+						irparams.timer = 0;
+					} else {
+						// Gap just ended; Record duration; Start recording transmission
+						irparams.overflow = 0;
+						irparams.rawlen  = 0;
+						irparams.rawbuf[irparams.rawlen++] = irparams.timer;
+						irparams.timer = 0;
+						irparams.rcvstate = STATE_MARK;
+					}
+				}
+			break;
+			case STATE_MARK:  // Timing Mark
+				if (irdata == SPACE) {// Mark ended; Record time
+					irparams.rawbuf[irparams.rawlen++] = irparams.timer;
+					irparams.timer = 0;
+					irparams.rcvstate = STATE_SPACE;
+				}
+			break;
+			case STATE_SPACE:  // Timing Space
+				if (irdata == MARK) {// Space just ended; Record time
+					irparams.rawbuf[irparams.rawlen++] = irparams.timer;
+					irparams.timer = 0;
+					irparams.rcvstate = STATE_MARK;
+				} else if (irparams.timer > GAP_TICKS) {// Space
+					irparams.rcvstate = STATE_STOP;
+				}
+			break;
+			case STATE_STOP:  // Waiting; Measuring Gap
+			 	if (irdata == MARK) irparams.timer = 0;  // Reset gap timer
+			break;
+			case STATE_OVERFLOW:  // Flag up a read overflow; Stop the State Machine
+				irparams.overflow = 1;
+				irparams.rcvstate = STATE_STOP;
+			break;
+		}
+	}
+#endif
+	//
 }
 //-------------------------------------------------------------------------------------------
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
@@ -2144,17 +2068,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		}
 		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, !bt3State);
 	}
-#ifdef SET_KBD
-	else if (GPIO_Pin == KBD_INT_Pin) {
-		if (kbdEnable) {
-			//HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
-			if ((HAL_GetTick() - kbd1tik) > 50) {
-				putMsg(msg_kbd);
-				kbd1tik = HAL_GetTick();
-			}
-		}
-	}
-#endif
 
 	if (keyFlag) putMsg(msg_keyEvent);
 

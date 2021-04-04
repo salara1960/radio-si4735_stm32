@@ -16,8 +16,8 @@ C_DEPS :=
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 Drivers/STM32F1xx_HAL_Driver \
-Src/ips \
 Src \
+Src/ips \
 Src/si4735 \
 startup \
 
