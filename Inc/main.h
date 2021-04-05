@@ -74,7 +74,7 @@ enum {
 typedef enum {
 	msg_empty = 0,
 	msg_rst,
-	msg_print,
+//	msg_print,
 	msg_100ms,
 	msg_sec,
 	msg_encCounter,
@@ -83,7 +83,7 @@ typedef enum {
 	msg_keyEvent,
 	msg_incFrec,
 	msg_decFrec,
-	msg_radioStatus,
+//	msg_radioStatus,
 	msg_updateScr,
 	msg_none
 } evt_t;

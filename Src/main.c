@@ -55,7 +55,8 @@
 //const char *version = "Version 1.5.3 (01.04.2021)";
 //const char *version = "Version 1.6 (02.04.2021)";//temporarily remove the module KBD mpr121
 //const char *version = "Version 1.7 (03.04.2021)";// add infrared control support
-const char *version = "Version 1.7.1 (04.04.2021)";
+//const char *version = "Version 1.7.1 (04.04.2021)";
+const char *version = "Version 1.7.2 (05.04.2021)";
 
 
 /* USER CODE END PD */
@@ -93,7 +94,7 @@ uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
-volatile time_t epoch = 1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
+volatile time_t epoch = 1617619412;//1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -233,7 +234,7 @@ volatile uint32_t kbdCnt = 0;
 	uint8_t agcNdx = 0;
 
 	Band band[] = {
-	  {FM_BAND_TYPE, 7200, 10800, 10390, 10},
+	  {FM_BAND_TYPE, 7200, 10800, 9510, 10},
 	  {LW_BAND_TYPE, 100, 510, 300, 1},
 	  {MW_BAND_TYPE, 520, 1720, 810, 10},
 	  {SW_BAND_TYPE, 1800, 3500, 1900, 1}, // 160 meters
@@ -260,30 +261,30 @@ volatile uint32_t kbdCnt = 0;
 
 	fm_station_t fm_station[] = {
 			{0, "Unknown"},
-			{7210, "Shanson"},
+			{7210, "Radio Shanson"},
 			{9360, "Radio 7"},
-			{9400, "ComedyRadio"},
-			{9510, "VestiFM"},
-			{9550, "RetroFM"},
-			{9630, "RussianRadio"},
-			{9700, "RadioBooks"},
-			{9770, "SilverRain"},
-			{9850, "RadioEnergy"},
-			{9950, "RadioZvezda"},
-			{10010, "AutoRadio"},
-			{10050, "RussianEdge"},
+			{9400, "Comedy Radio"},
+			{9510, "Vesti FM"},
+			{9550, "Retro FM"},
+			{9630, "Russian Radio"},
+			{9700, "Radio Books"},
+			{9770, "Silver Rain"},
+			{9850, "Radio Energy"},
+			{9950, "Radio Zvezda"},
+			{10010, "Auto Radio"},
+			{10050, "Russian Edge"},
 			{10090, "Monte-Karlo"},
-			{10130, "NasheRadio"},
-			{10180, "BusinessFM"},
-			{10250, "RadioMajak"},
-			{10290, "LoveRadio"},
-			{10340, "Studio21"},
-			{10390, "RadioRussia"},
+			{10130, "Nashe Radio"},
+			{10180, "Business FM"},
+			{10250, "Radio Majak"},
+			{10290, "Love Radio"},
+			{10340, "Studio 21"},
+			{10390, "Radio Russia"},
 			{10450, "Europe+"},
 			{10520, "Baltic+"},
-			{10590, "DorohznoeRadio"},
-			{10640, "RadioMaxim"},
-			{10720, "RadioKP"}
+			{10590, "Dorohznoe Radio"},
+			{10640, "Radio Maxim"},
+			{10720, "Radio KP"}
 	};
 	const int lastStation = (sizeof fm_station / sizeof(fm_station_t)) - 1;
 	int stationIdx = 0;
@@ -327,10 +328,10 @@ void putMsg(evt_t evt)
 
 	if (cnt_evt > (MAX_FIFO_SIZE - 5)) return;
 
-	/*HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI4_IRQn);*/
+	//HAL_NVIC_DisableIRQ(EXTI4_IRQn);
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -358,20 +359,20 @@ void putMsg(evt_t evt)
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
-	/*HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	//HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);*/
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 }
 //-------------------------------------------------------------------------------------------
 evt_t getMsg()
 {
 evt_t ret = msg_empty;
 
-	/*HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI4_IRQn);*/
+	//HAL_NVIC_DisableIRQ(EXTI4_IRQn);
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -391,10 +392,10 @@ evt_t ret = msg_empty;
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
-	/*HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	//HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);*/
+	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
 	return ret;
 }
@@ -648,6 +649,48 @@ evt_t ret = msg_empty;
 		if (ret == -1) ret = 0;
 		return ret;
 	}
+	//
+	void showAll()
+	{
+		if (radioMode == FMm) {
+			lastFrecFM = curFrec;
+			sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
+		} else {
+			sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
+			//if (radioMode == POWER_UP_SW) lastFrecSW = curFrec;
+			//else
+			if (radioMode == LW) lastFrecLW = curFrec;
+			else if (radioMode == AMm) lastFrecAM = curFrec;
+		}
+		#if defined(SET_ST_IPS)
+			ST7789_WriteString(2, fntKey->height + 1, mkLineCenter(sline, tFont->width), *tFont, invColor(GREEN), invColor(BLUE));
+		#elif defined(SET_OLED_SPI)
+			spi_ssd1306_text_xy(sline, 1, 3);
+		#endif
+		//
+		SI4735_getCurrentReceivedSignalQuality1(0);
+		radioSNR = SI4735_getCurrentSNR();
+		radioRSSI = SI4735_getCurrentRSSI();
+		#ifdef SET_ST_IPS
+			sprintf(sline, " %s S:", bandModeDesc[radioMode]);
+			if (radioSNR < 10) strcat(sline, " ");
+			sprintf(sline+strlen(sline), "%u R:", radioSNR);
+			if (radioRSSI < 10) strcat(sline, " ");
+			sprintf(sline+strlen(sline), "%u ", radioRSSI);
+			if (radioMode == AMm) {
+				sprintf(sline+strlen(sline), "W:%s", bandwitdthAM[bwIdxAM]);
+			} else if ((radioMode == USBm) || (radioMode == LSBm)) {
+				sprintf(sline+strlen(sline), "W:%s", bandwitdthSSB[bwIdxSSB]);
+			} else strcat(sline, " ");
+			ST7789_WriteString(4,
+							(fntKey->height * 4) - (fntKey->height >> 1) + 4,//pbar.y1 + 4,
+							mkLineCenter(sline, tFont->width),
+							*tFont,
+							invColor(GREEN),
+							invColor(BLUE));
+		#endif
+		//
+	}
 
 #endif
 //-------------------------------------------------------------------------------------------
@@ -776,8 +819,6 @@ int main(void)
 	#if defined(SET_ST_IPS)
     	updateBar(&pbar, aVol);
     	//
-    	//HAL_Delay(1);
-    	//
     	stationIdx = StationID(curFrec);
     	tdl = sprintf(stline, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
     	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
@@ -835,7 +876,6 @@ int main(void)
 #ifdef SET_IRED
 		if (!tmr_ired) {
 			if (decodeIRED(&results)) {
-				//tmr_ired = get_tmr10(_300ms);
 				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);//IRRED_LED();
 				int8_t kid = -1;
 				for (int8_t i = 0; i < MAX_IRED_KEY; i++) {
@@ -845,11 +885,16 @@ int main(void)
 					}
 				}
 				//
-				//
+				if (kid == -1) tdl = sprintf(stline, "CODE:%08lX", results.value);
+						  else tdl = sprintf(stline, "irKEY: %s", keyAll[kid].name);
 				//
 				uint8_t ys = 0;
 				if (kid != -1) {
 					switch (kid) {
+						case key_ch:
+							tdl = sprintf(stline, "RESTART...");
+							putMsg(msg_rst);
+						break;
 						case key_ch_plus:
 							if (radioMode == FMm) {
 								curFrec = SI4735_seekNextStation();
@@ -862,54 +907,69 @@ int main(void)
 								ys = 1;
 							}
 						break;
-						case key_100: break;
-						case key_200: break;
 						case key_minus:
 							volumeButton(0);
 							tdl = sprintf(stline, " Volume: %u ", aVol);
-							ys = 1;
+							if (radioMode == FMm) ys = 1;
 						break;
 						case key_plus:
 							volumeButton(1);
 							tdl = sprintf(stline, " Volume: %u ", aVol);
-							ys = 1;
+							if (radioMode == FMm) ys = 1;
 						break;
 						case key_left:
-							break;
 						case key_right:
-							break;
-						case key_sp:
-							if (stationIdx < lastStation) stationIdx++; else stationIdx = 1;
+							if (kid == key_left) {
+								if (stationIdx > 1) stationIdx--; else stationIdx = lastStation;
+							} else {
+								if (stationIdx < lastStation) stationIdx++; else stationIdx = 1;
+							}
 							curFrec = fm_station[stationIdx].freq;
 							SI4735_setFrequency(curFrec);
 							HAL_Delay(10);
-							ys = 1;
+							if (radioMode == FMm) ys = 1;
 						break;
-						case key_0: break;
-						case key_1: break;
-						case key_2: break;
-						case key_3: break;//dbg_on
-						case key_4: break;//dbg_off
-						case key_ch: putMsg(msg_rst); break;//rst
-						case key_eq: break;//out
+						case key_eq:
+							radioMode++;
+							radioMode &= 3;
+							radioModeNew = rcModes[radioMode];
+							radioMode = radioModeNew;
+							modeSwitchButton();
+							ys = 1;//putMsg(msg_updateScr);
+						break;
+						case key_sp:
+							bandwitdthButton();
+							ys = 1;//putMsg(msg_updateScr);
+						break;
+						case key_100:
+							bandUp();
+							ys = 1;//putMsg(msg_updateScr);
+						break;
+						case key_200:
+							bandDown();
+							ys = 1;//putMsg(msg_updateScr);
+						break;
+						//case key_100: break;
+						//case key_200: break;
+						//case key_0: break;
+						//case key_1: break;
+						//case key_2: break;
+						//case key_3: break;//dbg_on
+						//case key_4: break;//dbg_off
 					}
 					if (ys) {
 						stationIdx = StationID(curFrec);
-						tdl = sprintf(stline, " %s ", fm_station[stationIdx].name);
 						putMsg(msg_updateScr);
+					} else {
+						clearBar(&pbar, GREEN);
+						ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
+											pbar.y1 + 6,
+											stline,
+											*tFont,
+											invColor(BLACK),
+											invColor(GREEN));
 					}
 				}
-				/*if (!ys) {
-					if (kid == -1) tdl = sprintf(stline, "CODE:%08lX", results.value);
-							  else tdl = sprintf(stline, "irKEY: %s", keyAll[kid].name);
-					clearBar(&pbar, GREEN);
-					ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
-								    			pbar.y1 + 6,
-												stline,
-												*tFont,
-												invColor(BLACK),
-												invColor(GREEN));
-				}*/
 				tmr_ired = get_tmr10(_200ms);
 			}
 		}
@@ -926,17 +986,14 @@ int main(void)
   		switch ((int)evt) {
   			//
   		    case msg_updateScr:
-  		    	//int ix = StationID(curFrec);
-  		    	//tdl = sprintf(sline, " %s ", fm_station[ix].name);
   		    	clearBar(&pbar, GREEN);
-  		    	tdl = strlen(stline);
+  		    	tdl = sprintf(stline, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
   		    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
   		    						pbar.y1 + 6,
 									stline,
 									*tFont,
 									invColor(BLACK),
 									invColor(GREEN));
-  		    	HAL_Delay(10);
   		    	putMsg(msg_encCounter);
   		    break;
   			case msg_incFrec:
@@ -945,9 +1002,9 @@ int main(void)
   					curFrec += stepFrec;
   					int ix = StationID(curFrec);
   					if (ix > 0) {
-  						tdl = sprintf(stline, " %s ", fm_station[ix].name);
+  						stationIdx = ix;
   						putMsg(msg_updateScr);
-  					} else putMsg(msg_encCounter);
+  					}
   				}
   			break;
   			case msg_decFrec:
@@ -956,44 +1013,15 @@ int main(void)
   					curFrec -= stepFrec;
   					int ix = StationID(curFrec);
   					if (ix > 0) {
-  						tdl = sprintf(stline, " %s ", fm_station[ix].name);
+  						stationIdx = ix;
   						putMsg(msg_updateScr);
-  					} else putMsg(msg_encCounter);
+  					}
   				}
   			break;
   			case msg_encCounter:
   			case msg_encPressed:
   			case msg_encReleased:
-  				/*
-  				if (bfoOn) {
-  					currentBFO = (Encoder == 1) ? (currentBFO + currentBFOStep) : (currentBFO - currentBFOStep);
-  				    SI4735_setSSBBfo(currentBFO);
-  				    //showBFO();
-  				} else {
-  					//if (Encoder == 1) SI4735_frequencyUp();
-  				    //             else SI4735_frequencyDown();
-  				    // Show the current frequency only if it has changed
-  					//curFrec = SI4735_getFrequency();
-  					//showFrequency();
-  				}
-  				//Encoder = 0;*/
-
-  				//
-  				if (radioMode == FMm) {
-  					lastFrecFM = curFrec;
-  					sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
-  				} else {
-  					sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
-  					//if (radioMode == POWER_UP_SW) lastFrecSW = curFrec;
-  					//else
-  					if (radioMode == LW) lastFrecLW = curFrec;
-  					else if (radioMode == AMm) lastFrecAM = curFrec;
-  				}
-#if defined(SET_ST_IPS)
-  				ST7789_WriteString(2, fntKey->height + 1, mkLineCenter(sline, tFont->width), *tFont, invColor(GREEN), invColor(BLUE));
-#elif defined(SET_OLED_SPI)
-  				spi_ssd1306_text_xy(sline, 1, 3);
-#endif
+  				showAll();
   			break;
   			case msg_sec:
   				sec_to_str_time(get_tmr(0), buf);
@@ -1034,18 +1062,18 @@ int main(void)
 										   mem_info.keepcost);// Top-most, releasable space (bytes)
   				}
 #endif
-  				Report(NULL, false, "%s", buf);//putMsg(msg_print);
+  				Report(NULL, false, "%s", buf);
 
   				if (devError) errLedOn(NULL);
 
-  				putMsg(msg_radioStatus);
+  				putMsg(msg_encCounter);
   			break;
   			case msg_keyEvent:
   				switch (keyNumber) {
   					case KEY1:
   						radioMode = radioModeNew;
   						modeSwitchButton();
-  						bandwitdthButton();
+  						//bandwitdthButton();
   					break;
   					case KEY2:
   						if (radioMode == FMm) {
@@ -1063,33 +1091,11 @@ int main(void)
   					break;
   				}
   				if (keyNumber != NONE) {
-  					HAL_Delay(2);
-  					putMsg(msg_encCounter);
+  					stationIdx = StationID(curFrec);
+  					tdl = sprintf(stline, " %s ", fm_station[stationIdx].name);
+  					putMsg(msg_updateScr);
   				}
   				keyNumber = NONE;
-  			break;
-  			case msg_radioStatus:
-  				//SI4735_getStatus1(0, 1);
-  				SI4735_getCurrentReceivedSignalQuality1(0);
-  				radioSNR = SI4735_getCurrentSNR();
-  				radioRSSI = SI4735_getCurrentRSSI();
-				#ifdef SET_ST_IPS
-  					sprintf(sline, " %s SNR:", bandModeDesc[radioMode]);
-  					if (radioSNR < 10) strcat(sline, " ");
-  					sprintf(sline+strlen(sline), "%u RSSI:", radioSNR);
-  					if (radioRSSI < 10) strcat(sline, " ");
-  					sprintf(sline+strlen(sline), "%u ", radioRSSI);
-  					ST7789_WriteString(4,
-									(fntKey->height * 4) - (fntKey->height >> 1) + 4,//pbar.y1 + 4,
-									mkLineCenter(sline, tFont->width),
-									*tFont,
-									invColor(GREEN),
-									invColor(BLUE));
-				#endif
-  				//HAL_Delay(1);
-  			break;
-  			case msg_print:
-  				if (Report(NULL, false, "%s", buf)) putMsg(msg_print);
   			break;
   			case msg_rst:
   				HAL_Delay(100);
@@ -1898,7 +1904,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		HalfSecCounter++;//+10ms
 
-		if (!(HalfSecCounter % _350ms)) {
+		if (!(HalfSecCounter % _300ms)) {
 			Encoder = (TIM4->CNT) >> 1;
 			if (lastEncoder != Encoder) {
 				evt_t ev = msg_none;
