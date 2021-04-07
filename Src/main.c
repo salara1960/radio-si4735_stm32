@@ -56,7 +56,9 @@
 //const char *version = "Version 1.6 (02.04.2021)";//temporarily remove the module KBD mpr121
 //const char *version = "Version 1.7 (03.04.2021)";// add infrared control support
 //const char *version = "Version 1.7.1 (04.04.2021)";
-const char *version = "Version 1.7.2 (05.04.2021)";
+//const char *version = "Version 1.7.2 (05.04.2021)";
+//const char *version = "Version 1.8 (07.04.2021)";// add ssd1306(spi) display
+const char *version = "Version 1.8.1 (07.04.2021)";// optimize sources (used DMA for spi1)
 
 
 /* USER CODE END PD */
@@ -94,7 +96,7 @@ uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
-volatile time_t epoch = 1617619412;//1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
+volatile time_t epoch = 1617787599;//1617619412;//1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -116,6 +118,7 @@ int tdl = 0;
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
 
 	SPI_HandleTypeDef *portOLED = &hspi1;
+	void *ptr = NULL;
 
 	uint32_t spiRdy = 1;
 	uint32_t spi_cnt = 0;
@@ -207,14 +210,15 @@ volatile uint32_t kbdCnt = 0;
 	uint8_t radioModeNew = FMm;//POWER_UP_FM;
 	//uint16_t minFrec = minFrecFM;
 	//uint16_t maxFrec = maxFrecFM;
-	const uint16_t allStep[] = {1, 10, 100, 1000};
-	uint8_t stepFrecInd = 1;
-	uint8_t radioSNR = 0, radioRSSI = 0, lradioRSSI = 1;
+	const uint16_t allStep[] = {1, 5, 10, 50, 100, 1000};
+	uint8_t stepFrecInd = 2;
+	uint8_t radioSNR = 0, lradioSNR = 1, radioRSSI = 0, lradioRSSI = 1;
 	volatile uint8_t aVol = MAX_aVol;
 	volatile uint32_t radioCntInt = 0;
 	//
 	//
 	//
+	const char *statAGC[] = {"ON", "OFF"};
 	const uint8_t rcModes[] = {FMm, LSBm, USBm, AMm};
 	const char *bandModeDesc[] = {"FM ", "LSB", "USB", "AM "};
 	uint8_t bwIdxSSB = 2;
@@ -260,7 +264,7 @@ volatile uint32_t kbdCnt = 0;
 	int bandIdx = 0;
 
 	fm_station_t fm_station[] = {
-			{0, "Unknown"},
+			{0, "-----"},
 			{7210, "Radio Shanson"},
 			{9360, "Radio 7"},
 			{9400, "Comedy Radio"},
@@ -271,7 +275,7 @@ volatile uint32_t kbdCnt = 0;
 			{9770, "Silver Rain"},
 			{9850, "Radio Energy"},
 			{9950, "Radio Zvezda"},
-			{10010, "Auto Radio"},
+			{10010, "Avto Radio"},
 			{10050, "Russian Edge"},
 			{10090, "Monte-Karlo"},
 			{10130, "Nashe Radio"},
@@ -280,8 +284,8 @@ volatile uint32_t kbdCnt = 0;
 			{10290, "Love Radio"},
 			{10340, "Studio 21"},
 			{10390, "Radio Russia"},
-			{10450, "Europe+"},
-			{10520, "Baltic+"},
+			{10450, "Europe Plus"},
+			{10520, "Baltic Plus"},
 			{10590, "Dorohznoe Radio"},
 			{10640, "Radio Maxim"},
 			{10720, "Radio KP"}
@@ -331,7 +335,7 @@ void putMsg(evt_t evt)
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	//HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -359,7 +363,6 @@ void putMsg(evt_t evt)
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
-	//HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
@@ -372,7 +375,6 @@ evt_t ret = msg_empty;
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	//HAL_NVIC_DisableIRQ(EXTI4_IRQn);
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -392,7 +394,6 @@ evt_t ret = msg_empty;
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
-	//HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
@@ -473,7 +474,7 @@ evt_t ret = msg_empty;
 			SI4735_setFM1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
 			bfoOn = ssbLoaded = false;
 		} else {
-			if (band[bandIdx].bandType == MW_BAND_TYPE || band[bandIdx].bandType == LW_BAND_TYPE)
+			if ((band[bandIdx].bandType == MW_BAND_TYPE) || (band[bandIdx].bandType == LW_BAND_TYPE))
 				SI4735_setTuneFrequencyAntennaCapacitor(0);
 			else
 				SI4735_setTuneFrequencyAntennaCapacitor(1);
@@ -489,12 +490,11 @@ evt_t ret = msg_empty;
 			SI4735_sendProperty(AM_SOFT_MUTE_MAX_ATTENUATION, 0);
 			SI4735_setAutomaticGainControl(disableAgc, agcNdx);
 		}
-		_delay(100);
 		curFrec = band[bandIdx].currentFreq;
 		stepFrec = band[bandIdx].currentStep;
 		minFrec = band[bandIdx].minimumFreq;
 		maxFrec = band[bandIdx].maximumFreq;
-
+		_delay(100);
 		//showStatus();
 	}
 	void bandUp()
@@ -574,23 +574,18 @@ evt_t ret = msg_empty;
 			currentBFOStep = (currentBFOStep == 25) ? 10 : 25;
 			//showBFO();
 		} else {
-			if (radioMode != FMm) {
-				if (stepFrec == 1) currentStep = 5;
-				else if (stepFrec == 5) stepFrec = 10;
-				else if (stepFrec == 10) stepFrec = 50;
-				else stepFrec = 1;
-			} else {
-				if (stepFrec == 10) stepFrec = 100;
-				               else stepFrec = 10;
-			}
+			stepFrecInd++;
+			if (stepFrecInd >= max_allStep) stepFrecInd = 0;
+			stepFrec = allStep[stepFrecInd];
+
 			SI4735_setFrequencyStep(stepFrec);
 			band[bandIdx].currentStep = stepFrec;
 			//showStatus();
-			_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+			//_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
 		}
 
 	}
-	void attenuationButton()
+	uint8_t attenuationButton()
 	{
 		switch(agcIdx) {
 			case 0:
@@ -627,6 +622,8 @@ evt_t ret = msg_empty;
 		// Sets AGC on/off and gain
 		SI4735_setAutomaticGainControl(disableAgc, agcNdx);
 	    //showStatus();
+
+		return disableAgc;
 	}
 	void volumeButton(uint8_t d)
 	{
@@ -652,44 +649,78 @@ evt_t ret = msg_empty;
 	//
 	void showAll()
 	{
+
+		char stx[32] = {0};
+		char stz[32] = {0};
+#ifdef SET_ST_IPS
+		uint16_t wd = tFont->width;
+#else
+		uint16_t wd = FONT_WIDTH;
+#endif
+		//
+		memset(sline, 0, sizeof(sline));
+		sprintf(stx, "%s", bandModeDesc[radioMode]);
 		if (radioMode == FMm) {
 			lastFrecFM = curFrec;
-			sprintf(sline, " %u.%02u MHz  %u KHz ", curFrec / 100, curFrec % 100, stepFrec);
+			sprintf(stx+strlen(stx), "%u.%02uM", curFrec / 100, curFrec % 100);
 		} else {
-			sprintf(sline, " %u KHz  %u KHz ", curFrec, stepFrec);
+			sprintf(stx+strlen(stx), " %uK", curFrec);
 			//if (radioMode == POWER_UP_SW) lastFrecSW = curFrec;
 			//else
 			if (radioMode == LW) lastFrecLW = curFrec;
 			else if (radioMode == AMm) lastFrecAM = curFrec;
 		}
-		#if defined(SET_ST_IPS)
-			ST7789_WriteString(2, fntKey->height + 1, mkLineCenter(sline, tFont->width), *tFont, invColor(GREEN), invColor(BLUE));
-		#elif defined(SET_OLED_SPI)
-			spi_ssd1306_text_xy(sline, 1, 3);
-		#endif
+		sprintf(stz, "%uK", stepFrec);
+		strncpy(sline, mkLineWidth(stx, stz, wd), 16);
 		//
-		SI4735_getCurrentReceivedSignalQuality1(0);
-		radioSNR = SI4735_getCurrentSNR();
-		radioRSSI = SI4735_getCurrentRSSI();
-		#ifdef SET_ST_IPS
-			sprintf(sline, " %s S:", bandModeDesc[radioMode]);
-			if (radioSNR < 10) strcat(sline, " ");
-			sprintf(sline+strlen(sline), "%u R:", radioSNR);
-			if (radioRSSI < 10) strcat(sline, " ");
-			sprintf(sline+strlen(sline), "%u ", radioRSSI);
-			if (radioMode == AMm) {
-				sprintf(sline+strlen(sline), "W:%s", bandwitdthAM[bwIdxAM]);
-			} else if ((radioMode == USBm) || (radioMode == LSBm)) {
-				sprintf(sline+strlen(sline), "W:%s", bandwitdthSSB[bwIdxSSB]);
-			} else strcat(sline, " ");
-			ST7789_WriteString(4,
-							(fntKey->height * 4) - (fntKey->height >> 1) + 4,//pbar.y1 + 4,
-							mkLineCenter(sline, tFont->width),
-							*tFont,
-							invColor(GREEN),
-							invColor(BLUE));
-		#endif
+		strcpy(stx, "\n SNR:");
+		if (radioSNR < 10) strcat(stx, " ");
+		sprintf(stx+strlen(stx), "%u", radioSNR);
+		strcpy(stz, "RSSI:");
+		if (radioRSSI < 10) strcat(stz, " ");
+		sprintf(stz+strlen(stz), "%u", radioRSSI);
+		sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
 		//
+		sprintf(stx, "\n AGC:%s", statAGC[disableAgc]);
+		if (radioMode == AMm) {
+			sprintf(stz, "WB:%s", bandwitdthAM[bwIdxAM]);
+		} else if ((radioMode == USBm) || (radioMode == LSBm)) {
+			sprintf(stz, "WB:%s", bandwitdthSSB[bwIdxSSB]);
+		} else strcpy(stz, "WB:-");
+		sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
+#ifdef SET_ST_IPS
+		ST7789_WriteString(4, (fntKey->height << 1) + 12, sline, *tFont, invColor(GREEN), invColor(BLUE));
+#else
+		withDMA = 1;
+		spi_ssd1306_text_xy(sline, 1, 3);
+		withDMA = 0;
+#endif
+	}
+
+	void updateStation(void *p, char *st)
+	{
+#if defined(SET_ST_IPS)
+		area_t *pb = (area_t *)p;
+		clearBar(pb, GREEN);
+		int len = sprintf(st, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
+		ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - len) >> 1) * tFont->width,
+						pb->y1 + 6,
+						st,
+						*tFont,
+						invColor(BLACK),
+						invColor(GREEN));
+#elif defined(SET_OLED_SPI)
+
+		int len = strlen(fm_station[stationIdx].name);
+		if (len > (OLED_WIDTH / FONT_WIDTH)) len = OLED_WIDTH / FONT_WIDTH;
+		sprintf(st, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
+		*(st + len) = '\0';
+		withDMA = 1;
+		spi_ssd1306_text_xy(mkLineCenter(st, FONT_WIDTH), 1, 2);
+		withDMA = 0;
+
+
+#endif
 	}
 
 #endif
@@ -768,7 +799,7 @@ int main(void)
 
   	ST7789_Fill_Color(invColor(BLUE));
 
-  	area_t recta = {
+  	/*area_t recta = {
   		.x1 = 0,
 		.y1 = (fntKey->height << 1) + 1,
 		.x2 = ST7789_WIDTH - 1,
@@ -776,13 +807,13 @@ int main(void)
 		.bcolor = invColor(YELLOW),
 		.duga = &arrScr[0],
   	};
-  	mkFace(&recta);
+  	mkFace(&recta);*/
 
   	area_t pbar = {
-  		.x1 = recta.x1 + 2,
-		.y1 = recta.y1 + 2,
-		.x2 = recta.x2 - 2,
-		.y2 = recta.y1 + fntKey->height + 5,
+  		.x1 = 0,//recta.x1 + 2,
+		.y1 = fntKey->height + 1,//(fntKey->height << 1) + 1,//recta.y1 + 2,
+		.x2 = ST7789_WIDTH - 1,//recta.x2 - 2,
+		.y2 = fntKey->height + 1 + fntKey->height + 5,
 		.bcolor = invColor(MAGENTA),
 		.duga = NULL,
   	};
@@ -818,17 +849,23 @@ int main(void)
 
 	#if defined(SET_ST_IPS)
     	updateBar(&pbar, aVol);
+	#endif
     	//
     	stationIdx = StationID(curFrec);
-    	tdl = sprintf(stline, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
-    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
-    			pbar.y1 + 6,
-				stline,
-				*tFont,
-				invColor(BLACK),
-				invColor(GREEN));
     	//
+	#ifdef SET_ST_IPS
+    	ptr = (void *)&pbar;
 	#endif
+    	updateStation(ptr, stline);
+
+    	attenuationButton();
+
+    	SI4735_getCurrentReceivedSignalQuality1(0);
+    	radioSNR = lradioSNR = SI4735_getCurrentSNR();
+    	radioRSSI = lradioRSSI = SI4735_getCurrentRSSI();
+
+    	showAll();
+
     }
 
 #endif
@@ -852,6 +889,7 @@ int main(void)
 	enIntIRED();
 #endif
 
+	evt_t msg = msg_none;
 
   	// start encoder's channels
   	HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
@@ -872,11 +910,13 @@ int main(void)
 
   	evt_t evt = msg_none;
   	while (1) {
-	    //
+
 #ifdef SET_IRED
-		if (!tmr_ired) {
+  		if (!tmr_ired) {
 			if (decodeIRED(&results)) {
-				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);//IRRED_LED();
+
+				tmr_ired = get_tmr10(_350ms);
+				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
 				int8_t kid = -1;
 				for (int8_t i = 0; i < MAX_IRED_KEY; i++) {
 					if (results.value == keyAll[i].code) {
@@ -926,51 +966,46 @@ int main(void)
 							}
 							curFrec = fm_station[stationIdx].freq;
 							SI4735_setFrequency(curFrec);
-							HAL_Delay(10);
 							if (radioMode == FMm) ys = 1;
 						break;
 						case key_eq:
 							radioMode++;
 							radioMode &= 3;
-							radioModeNew = rcModes[radioMode];
-							radioMode = radioModeNew;
+							radioMode = rcModes[radioMode];
 							modeSwitchButton();
-							ys = 1;//putMsg(msg_updateScr);
+							ys = 1;
 						break;
 						case key_sp:
 							bandwitdthButton();
-							ys = 1;//putMsg(msg_updateScr);
+							ys = 1;
 						break;
 						case key_100:
 							bandUp();
-							ys = 1;//putMsg(msg_updateScr);
+							ys = 1;
 						break;
 						case key_200:
 							bandDown();
-							ys = 1;//putMsg(msg_updateScr);
+							ys = 1;
 						break;
-						//case key_100: break;
-						//case key_200: break;
-						//case key_0: break;
+						case key_0:
+							disableAgc++;
+							disableAgc &= 1;
+							attenuationButton();
+							showAll();
+							ys = 2;
+						break;
 						//case key_1: break;
 						//case key_2: break;
 						//case key_3: break;//dbg_on
 						//case key_4: break;//dbg_off
 					}
-					if (ys) {
-						stationIdx = StationID(curFrec);
+					if (ys == 1) {
 						putMsg(msg_updateScr);
-					} else {
-						clearBar(&pbar, GREEN);
-						ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
-											pbar.y1 + 6,
-											stline,
-											*tFont,
-											invColor(BLACK),
-											invColor(GREEN));
+					} else if (!ys) {
+						updateStation(ptr, stline);
 					}
 				}
-				tmr_ired = get_tmr10(_200ms);
+
 			}
 		}
 		if (tmr_ired) {
@@ -981,56 +1016,48 @@ int main(void)
 			}
 		}
 #endif
-  		//
+
+		msg = msg_none;
   		evt = getMsg();
   		switch ((int)evt) {
   			//
-  		    case msg_updateScr:
-  		    	clearBar(&pbar, GREEN);
-  		    	tdl = sprintf(stline, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
-  		    	ST7789_WriteString(4 + (((ST7789_WIDTH / tFont->width) - tdl) >> 1) * tFont->width,
-  		    						pbar.y1 + 6,
-									stline,
-									*tFont,
-									invColor(BLACK),
-									invColor(GREEN));
-  		    	putMsg(msg_encCounter);
-  		    break;
   			case msg_incFrec:
   				if ((curFrec + stepFrec) <= maxFrec) {
-  					SI4735_frequencyUp();//+stepFrec
+  					SI4735_frequencyUp();
   					curFrec += stepFrec;
-  					int ix = StationID(curFrec);
-  					if (ix > 0) {
-  						stationIdx = ix;
-  						putMsg(msg_updateScr);
-  					}
+  					msg = msg_updateScr;
   				}
   			break;
   			case msg_decFrec:
   				if ((curFrec - stepFrec) >= minFrec) {
-  					SI4735_frequencyDown();//-stepFrec
+  					SI4735_frequencyDown();
   					curFrec -= stepFrec;
-  					int ix = StationID(curFrec);
-  					if (ix > 0) {
-  						stationIdx = ix;
-  						putMsg(msg_updateScr);
-  					}
+  					msg = msg_updateScr;
   				}
   			break;
-  			case msg_encCounter:
-  			case msg_encPressed:
+  			//case msg_encCounter:
+  			//case msg_encPressed:
   			case msg_encReleased:
+  				stepButton();
+  				msg = msg_showAll;
+  			break;
+  			case msg_updateScr:
+  				stationIdx = StationID(curFrec);
+				updateStation(ptr, stline);
+				msg = msg_showAll;
+			break;
+  			case msg_showAll:
   				showAll();
   			break;
   			case msg_sec:
+  			{
   				sec_to_str_time(get_tmr(0), buf);
 #if defined(SET_ST_IPS)
   				ST7789_WriteString(4, 0, buf, *fntKey, invColor(YELLOW), invColor(BLUE));
 #elif defined(SET_OLED_SPI)
   				spi_ssd1306_text_xy(buf, 2, 1);
 #endif
-  				sprintf(buf+strlen(buf), " [%lu] devError(%lu): 0x%02X, Fifo: %d/%d, Radio: mode=%s Frec=",
+  				sprintf(buf+strlen(buf), " [%lu] Error(%lu): 0x%02X, Fifo: %d/%d, Radio: mode=%s Frec=",
   					                   ++pack_num, cnt_err, devError,
 									   (int)cnt_evt, (int)max_evt,
 									   bandModeDesc[radioMode & 3]);
@@ -1066,7 +1093,18 @@ int main(void)
 
   				if (devError) errLedOn(NULL);
 
-  				putMsg(msg_encCounter);
+  				SI4735_getCurrentReceivedSignalQuality1(0);
+  				radioSNR = SI4735_getCurrentSNR();
+  				radioRSSI = SI4735_getCurrentRSSI();
+  				bool y = false;
+  				     if (lradioSNR  != radioSNR)  y = true;
+  				else if (lradioRSSI != radioRSSI) y = true;
+  				if (y) {
+  					lradioSNR = radioSNR;
+  					lradioRSSI = radioRSSI;
+  					msg = msg_showAll;
+  				}
+  			}
   			break;
   			case msg_keyEvent:
   				switch (keyNumber) {
@@ -1090,11 +1128,7 @@ int main(void)
   						}
   					break;
   				}
-  				if (keyNumber != NONE) {
-  					stationIdx = StationID(curFrec);
-  					tdl = sprintf(stline, " %s ", fm_station[stationIdx].name);
-  					putMsg(msg_updateScr);
-  				}
+  				if (keyNumber != NONE) msg = msg_updateScr;
   				keyNumber = NONE;
   			break;
   			case msg_rst:
@@ -1104,7 +1138,8 @@ int main(void)
   				NVIC_SystemReset();
   			break;
   		}
-
+  		//
+  		if (msg != msg_none) putMsg(msg);
   		//
   	}
 
@@ -1934,7 +1969,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		irparams.timer++;  // One more 50uS tick
 		if (irparams.rawlen >= RAWBUF) irparams.rcvstate = STATE_OVERFLOW;  // Buffer overflow
 
-		switch(irparams.rcvstate) {
+		switch (irparams.rcvstate) {
 			case STATE_IDLE: // In the middle of a gap
 				if (irdata == MARK) {
 					if (irparams.timer < GAP_TICKS) { // Not big enough to be a gap.
@@ -1973,6 +2008,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				irparams.rcvstate = STATE_STOP;
 			break;
 		}
+		//
 	}
 #endif
 	//
@@ -2000,7 +2036,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 	if (GPIO_Pin == SI_INT_Pin) {//пока не используется : this interrupt disable now
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
+		//HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
 		radioCntInt++;
 		//
 	} else if (GPIO_Pin == ENC_KEY_Pin) {
@@ -2011,12 +2047,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 					tikStart = 0;
 					encKeyPressed = false;
 					encKeyCnt++;
-					//
-					stepFrecInd++;
-					if (stepFrecInd >= max_allStep) stepFrecInd = 0;
-					stepFrec = allStep[stepFrecInd];
-					SI4735_setStep(stepFrec);//currentStep = stepFrec;
-					//
 					putMsg(msg_encReleased);
 				}
 			}

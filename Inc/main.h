@@ -74,17 +74,15 @@ enum {
 typedef enum {
 	msg_empty = 0,
 	msg_rst,
-//	msg_print,
-	msg_100ms,
 	msg_sec,
 	msg_encCounter,
-	msg_encPressed,
+//	msg_encPressed,
 	msg_encReleased,
 	msg_keyEvent,
 	msg_incFrec,
 	msg_decFrec,
-//	msg_radioStatus,
 	msg_updateScr,
+	msg_showAll,
 	msg_none
 } evt_t;
 
@@ -202,12 +200,12 @@ void Error_Handler(void);
 #define MAX_UART_BUF  768
 
 #define TIME_encKeyPressed 50
-#define TIME_btKeyPressed 75
+#define TIME_btKeyPressed 50
 
 
 #ifdef SET_OLED_SPI
-	#define CS_OLED_SELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_RESET)
-	#define CS_OLED_DESELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_SET)
+	//#define CS_OLED_SELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_RESET)
+	//#define CS_OLED_DESELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_SET)
 #endif
 
 
@@ -226,6 +224,8 @@ volatile uint32_t cnt_err;
 
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
 	SPI_HandleTypeDef *portOLED;
+#endif
+#if defined(SET_ST_IPS)
 	const FontDef *fntKey;
 	const FontDef *tFont;
 	const FontDef *lFont;
@@ -285,7 +285,7 @@ volatile uint32_t cnt_err;
 	//
 	//
 	//
-	#define max_allStep 4
+	#define max_allStep 5
     #define max_rModes 4
 
     #define minFrecFM 6400  //MHz

@@ -9,7 +9,7 @@
 
 //#define SET_STATIC_MEM
 
-#define SET_ST_IPS
+//#define SET_ST_IPS
 #ifdef SET_ST_IPS
 	//#define SET_WITH_DMA
 //	#define SET_WITH_CS
@@ -18,7 +18,7 @@
 	#endif
 #endif
 
-//#define SET_OLED_SPI
+#define SET_OLED_SPI
 
 
 #define SET_SI4735

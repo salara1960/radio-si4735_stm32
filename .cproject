@@ -38,6 +38,7 @@
 								<option id="gnu.c.compiler.option.debugging.level.1252414897" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.1543622010" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="../Inc"/>
+									<listOptionValue builtIn="false" value="../Inc/oled"/>
 									<listOptionValue builtIn="false" value="../Inc/ips"/>
 									<listOptionValue builtIn="false" value="../Inc/si4735"/>
 									<listOptionValue builtIn="false" value="/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.3/Drivers/STM32F1xx_HAL_Driver/Inc"/>
@@ -148,6 +149,7 @@
 								<option id="gnu.c.compiler.option.debugging.level.1252414897" name="Debug Level" superClass="gnu.c.compiler.option.debugging.level" useByScannerDiscovery="false" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.include.paths.1543622010" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="../Inc"/>
+									<listOptionValue builtIn="false" value="../Inc/oled"/>
 									<listOptionValue builtIn="false" value="../Inc/ips"/>
 									<listOptionValue builtIn="false" value="../Inc/si4735"/>
 									<listOptionValue builtIn="false" value="/home/alarm/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.3/Drivers/STM32F1xx_HAL_Driver/Inc"/>

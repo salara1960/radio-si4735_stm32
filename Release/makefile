@@ -10,6 +10,7 @@ RM := rm -rf
 -include sources.mk
 -include startup/subdir.mk
 -include Src/si4735/subdir.mk
+-include Src/oled/subdir.mk
 -include Src/ips/subdir.mk
 -include Src/subdir.mk
 -include Drivers/STM32F1xx_HAL_Driver/subdir.mk

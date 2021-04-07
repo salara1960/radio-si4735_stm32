@@ -1,16 +1,17 @@
 # radio-si4735_stm32
-radio device project : si4735 chip + stm32f103 arm + st7789 display + NS8002 power amplifier chip
+radio device project : si4735 chip + stm32f103 arm + ssd1306 display + NS8002 power amplifier chip
 
 Hardware components :
 
 ```
 * SI4735-D60-GU, RF receiver AM/FM/LW/SW
 * STM32F103 (Black Pill board)
-* ST7789 1.3 inch IPS display 240x240 RGB
+* ssd1306 OLED display 128x64 //ST7789 1.3 inch IPS display 240x240 RGB
 * NS8002 chip - audio power amplifier
 * speaker 8 Om 3 W
 * 3-button module
 * Valkoder module
+* TL1838 Infrared Receiver
 ```
 
 Software components :

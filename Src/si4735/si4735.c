@@ -1091,11 +1091,9 @@ void SI4735_getAutomaticGainControl()
 
     if (currentTune == FM_TUNE_FREQ) { // FM TUNE
         cmd = FM_AGC_STATUS;
-    }
-    else if (currentTune == NBFM_TUNE_FREQ) {
+    } else if (currentTune == NBFM_TUNE_FREQ) {
         cmd = NBFM_AGC_STATUS;
-    }
-    else { // AM TUNE - SAME COMMAND used on SSB mode
+    } else { // AM TUNE - SAME COMMAND used on SSB mode
         cmd = AM_AGC_STATUS;
     }
 

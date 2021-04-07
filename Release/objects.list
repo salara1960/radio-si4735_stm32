@@ -26,5 +26,8 @@
 "Src/system_stm32f1xx.o"
 "Src/ips/fonts.o"
 "Src/ips/st7789.o"
+"Src/oled/fontik.o"
+"Src/oled/ssd1306.o"
+"Src/oled/ssd1306_spi.o"
 "Src/si4735/si4735.o"
 "startup/startup_stm32f103xb.o"
