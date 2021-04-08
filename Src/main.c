@@ -125,6 +125,7 @@ int tdl = 0;
 	char sline[128] = {0};
 	char stline[40] = {0};
 	uint16_t lcorX = 0;
+	int len_sline = 0;
 
 	#ifdef SET_ST_IPS
 		const FontDef *fntKey = &Font_16x26;
@@ -207,7 +208,7 @@ volatile uint32_t kbdCnt = 0;
 	uint16_t lastFrecFM = 0, lastFrecAM = 0, lastFrecSW = 0, lastFrecLW = 0;
 	uint16_t stepFrec = 1; //KHz
 	uint8_t radioMode = FMm;
-	uint8_t radioModeNew = FMm;//POWER_UP_FM;
+	//uint8_t radioModeNew = FMm;//POWER_UP_FM;
 	//uint16_t minFrec = minFrecFM;
 	//uint16_t maxFrec = maxFrecFM;
 	const uint16_t allStep[] = {1, 5, 10, 50, 100, 1000};
@@ -265,7 +266,6 @@ volatile uint32_t kbdCnt = 0;
 
 	fm_station_t fm_station[] = {
 			{0, "-----"},
-			{7210, "Radio Shanson"},
 			{9360, "Radio 7"},
 			{9400, "Comedy Radio"},
 			{9510, "Vesti FM"},
@@ -423,7 +423,6 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Master_Transmit(portRADIO, dev_addr << 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -433,7 +432,6 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Mem_Write(portRADIO, dev_addr << 1, to, 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -443,7 +441,6 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Master_Receive(portRADIO, dev_addr << 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -453,7 +450,6 @@ evt_t ret = msg_empty;
 		if (HAL_I2C_Mem_Read(portRADIO, dev_addr << 1, from, 1, data, len, max_wait_ms) != HAL_OK) {
 			devError |= devI2C;
 			cnt_err++;
-			//putMsg(msg_errCounter);
 		} else {
 			devError &= ~devI2C;
 		}
@@ -468,22 +464,28 @@ evt_t ret = msg_empty;
 	//
 	void useBand()
 	{
+		//curFrec = SI4735_getFrequency();
+
 		if (band[bandIdx].bandType == FM_BAND_TYPE) {
 			radioMode = FMm;
 			SI4735_setTuneFrequencyAntennaCapacitor(0);
-			SI4735_setFM1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
-			bfoOn = ssbLoaded = false;
+			SI4735_setFM(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
+			bfoOn = false;
+			ssbLoaded = false;
 		} else {
 			if ((band[bandIdx].bandType == MW_BAND_TYPE) || (band[bandIdx].bandType == LW_BAND_TYPE))
 				SI4735_setTuneFrequencyAntennaCapacitor(0);
 			else
 				SI4735_setTuneFrequencyAntennaCapacitor(1);
+			//
+			if (!ssbLoaded) ssbLoaded = SI4735_loadSSB(bwIdxSSB);
+			//
 			if (ssbLoaded) {
-				SI4735_setSSB1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep, radioMode);
+				SI4735_setSSB(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep, radioMode);
 				SI4735_setSSBAutomaticVolumeControl(1);
 			} else {
 				radioMode = AMm;
-				SI4735_setAM1(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
+				SI4735_setAM(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
 				bfoOn = false;
 			}
 			//SI4735_setAmSoftMuteMaxAttenuation(0);
@@ -517,23 +519,24 @@ evt_t ret = msg_empty;
 	}
 	void modeSwitchButton()
 	{
-		if (radioMode != FMm) {
-			if (radioMode == AMm) {
-				// If you were in AM mode, it is necessary to load SSB patch (avery time)
-				SI4735_loadSSB(bwIdxSSB);
-				radioMode = LSBm;
-			} else if (radioMode == LSBm) {
-				radioMode = USBm;
-			} else if (radioMode == USBm) {
-				radioMode = AMm;
-				ssbLoaded = false;
-				bfoOn = false;
-			}
-			// Nothing to do if you are in FM mode
-			band[bandIdx].currentFreq = curFrec;
-			band[bandIdx].currentStep = stepFrec;
-			useBand();
+		if (radioMode == FMm) return;
+
+		if (radioMode == AMm) {
+			// If you were in AM mode, it is necessary to load SSB patch (avery time)
+			ssbLoaded = SI4735_loadSSB(bwIdxSSB);
+			radioMode = LSBm;
+		} else if (radioMode == LSBm) {
+			radioMode = USBm;
+		} else if (radioMode == USBm) {
+			radioMode = AMm;
+			ssbLoaded = false;
+			bfoOn = false;
 		}
+		// Nothing to do if you are in FM mode
+		band[bandIdx].currentFreq = curFrec;
+		band[bandIdx].currentStep = stepFrec;
+
+		useBand();
 	}
 	void bandwitdthButton()
 	{
@@ -647,6 +650,8 @@ evt_t ret = msg_empty;
 		return ret;
 	}
 	//
+	//
+	//
 	void showAll()
 	{
 
@@ -681,17 +686,29 @@ evt_t ret = msg_empty;
 		sprintf(stz+strlen(stz), "%u", radioRSSI);
 		sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
 		//
-		sprintf(stx, "\n AGC:%s", statAGC[disableAgc]);
-		if (radioMode == AMm) {
-			sprintf(stz, "WB:%s", bandwitdthAM[bwIdxAM]);
-		} else if ((radioMode == USBm) || (radioMode == LSBm)) {
-			sprintf(stz, "WB:%s", bandwitdthSSB[bwIdxSSB]);
-		} else strcpy(stz, "WB:-");
-		sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
+		//
+		//
+		if ( radioMode == FMm) {
+			sprintf(stx, "\nAudio: %s %u", (SI4735_getCurrentPilot()) ? "STEREO" : "MONO", aVol);
+		} else {
+			sprintf(stx, "\n AGC:%s", statAGC[disableAgc]);
+			sprintf(stz, " ATT:%2d", agcNdx);
+			sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
+			if (radioMode == AMm) {
+				sprintf(stx, "\n BW:%s", bandwitdthAM[bwIdxAM]);
+			} else if ((radioMode == USBm) || (radioMode == LSBm)) {
+				sprintf(stx, "\n BW:%s BFO:%d/%u", bandwitdthSSB[bwIdxSSB], currentBFO, currentBFOStep);
+			} else strcpy(stx, "\n BW:-");
+		}
+		withDMA = 1;
+		int len = sprintf(sline+strlen(sline), "%s", mkLineCenter(stx, wd));
+		if (len < len_sline) {
+			len_sline = len;
+			spi_ssd1306_clear_from_to(5, 6);
+		}
 #ifdef SET_ST_IPS
 		ST7789_WriteString(4, (fntKey->height << 1) + 12, sline, *tFont, invColor(GREEN), invColor(BLUE));
 #else
-		withDMA = 1;
 		spi_ssd1306_text_xy(sline, 1, 3);
 		withDMA = 0;
 #endif
@@ -718,9 +735,30 @@ evt_t ret = msg_empty;
 		withDMA = 1;
 		spi_ssd1306_text_xy(mkLineCenter(st, FONT_WIDTH), 1, 2);
 		withDMA = 0;
-
-
 #endif
+	}
+
+	void newMode()
+	{
+
+		radioMode++;
+		radioMode &= 3;
+
+		modeSwitchButton();
+
+		/*if (!ssbLoaded) ssbLoaded = SI4735_loadSSB(bwIdxSSB);
+
+		char stx[32];
+		sprintf(stx, "loadSSB(%d)=%d", bwIdxSSB, ssbLoaded);
+		withDMA = 1;
+		spi_ssd1306_text_xy(stx, 1, 8);
+		withDMA = 0;
+
+		// Nothing to do if you are in FM mode
+		band[bandIdx].currentFreq = curFrec;
+		band[bandIdx].currentStep = stepFrec;
+
+		useBand();*/
 	}
 
 #endif
@@ -838,7 +876,7 @@ int main(void)
 
     	SI4735_init(radioMode);
 
-    	HAL_Delay(300);
+    	HAL_Delay(250);
     	// Set up the radio for the current band (see index table variable bandIdx )
     	useBand();
     	curFrec = SI4735_getFrequency();
@@ -848,14 +886,12 @@ int main(void)
     	SI4735_getFirmware();
 
 	#if defined(SET_ST_IPS)
+    	ptr = (void *)&pbar;
     	updateBar(&pbar, aVol);
 	#endif
     	//
     	stationIdx = StationID(curFrec);
     	//
-	#ifdef SET_ST_IPS
-    	ptr = (void *)&pbar;
-	#endif
     	updateStation(ptr, stline);
 
     	attenuationButton();
@@ -890,6 +926,10 @@ int main(void)
 #endif
 
 	evt_t msg = msg_none;
+	bool ep_start = false;
+	time_t ep_time = get_tmr(0);
+	char ep_str[16] = {0};
+	uint32_t ep_tmr = 0;
 
   	// start encoder's channels
   	HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
@@ -915,7 +955,7 @@ int main(void)
   		if (!tmr_ired) {
 			if (decodeIRED(&results)) {
 
-				tmr_ired = get_tmr10(_350ms);
+				tmr_ired = get_tmr10(_300ms);
 				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
 				int8_t kid = -1;
 				for (int8_t i = 0; i < MAX_IRED_KEY; i++) {
@@ -959,7 +999,7 @@ int main(void)
 						break;
 						case key_left:
 						case key_right:
-							if (kid == key_left) {
+							if (kid == key_left) {//if (radioMode == FMm)
 								if (stationIdx > 1) stationIdx--; else stationIdx = lastStation;
 							} else {
 								if (stationIdx < lastStation) stationIdx++; else stationIdx = 1;
@@ -969,15 +1009,26 @@ int main(void)
 							if (radioMode == FMm) ys = 1;
 						break;
 						case key_eq:
-							radioMode++;
-							radioMode &= 3;
-							radioMode = rcModes[radioMode];
-							modeSwitchButton();
+							newMode();
 							ys = 1;
 						break;
 						case key_sp:
-							bandwitdthButton();
-							ys = 1;
+							//bandwitdthButton();
+							//ys = 1;
+							if (!ep_start) {
+								ep_start = true;
+								memset(ep_str, 0, sizeof(ep_str));
+								ep_time = 0;
+#ifdef SET_OLED_SPI
+								spi_ssd1306_text_xy("T:", 1, 8);
+#endif
+								ep_tmr = get_tmr(20);
+							} else {
+								ep_start = false;
+								ep_tmr = 0;
+								ep_time = atoi(ep_str);
+								putMsg(msg_setEpoch);
+							}
 						break;
 						case key_100:
 							bandUp();
@@ -988,16 +1039,31 @@ int main(void)
 							ys = 1;
 						break;
 						case key_0:
-							disableAgc++;
-							disableAgc &= 1;
-							attenuationButton();
-							showAll();
-							ys = 2;
+							//disableAgc++;
+							//disableAgc &= 1;
+							//attenuationButton();
+							//showAll();
+							//ys = 2;
+						case key_1:
+						case key_2:
+						case key_3:
+						case key_4:
+						case key_5:
+						case key_6:
+						case key_7:
+						case key_8:
+						case key_9:
+							if (ep_start) {
+								if (strlen(ep_str) < 10) {
+									char ch = (kid - key_0) + 0x30;
+									sprintf(ep_str+strlen(ep_str), "%c", ch);
+#ifdef SET_OLED_SPI
+									spi_ssd1306_text_xy(ep_str, 3, 8);
+#endif
+									ep_tmr = get_tmr(20);
+								}
+							}
 						break;
-						//case key_1: break;
-						//case key_2: break;
-						//case key_3: break;//dbg_on
-						//case key_4: break;//dbg_off
 					}
 					if (ys == 1) {
 						putMsg(msg_updateScr);
@@ -1008,6 +1074,15 @@ int main(void)
 
 			}
 		}
+  		if (ep_tmr) {
+  			if (check_tmr(ep_tmr)) {
+  				ep_tmr = 0;
+  				ep_start = false;
+#ifdef SET_OLED_SPI
+  				spi_ssd1306_clear_from_to(8, 8);
+#endif
+  			}
+  		}
 		if (tmr_ired) {
 			if (check_tmr10(tmr_ired)) {
 				tmr_ired = 0;
@@ -1020,6 +1095,16 @@ int main(void)
 		msg = msg_none;
   		evt = getMsg();
   		switch ((int)evt) {
+  			//
+  			case msg_setEpoch:
+  				if (ep_time > epoch) {
+  					epoch = ep_time;
+  					set_Date(epoch);
+  				}
+#ifdef SET_OLED_SPI
+  				spi_ssd1306_clear_from_to(8, 8);
+#endif
+  			break;
   			//
   			case msg_incFrec:
   				if ((curFrec + stepFrec) <= maxFrec) {
@@ -1042,8 +1127,10 @@ int main(void)
   				msg = msg_showAll;
   			break;
   			case msg_updateScr:
-  				stationIdx = StationID(curFrec);
-				updateStation(ptr, stline);
+  				if (radioMode == FMm) {
+  					stationIdx = StationID(curFrec);
+  					updateStation(ptr, stline);
+  				}
 				msg = msg_showAll;
 			break;
   			case msg_showAll:
@@ -1069,8 +1156,9 @@ int main(void)
   				else
   					sprintf(buf+strlen(buf), "%u (%u-%u) KHz,", curFrec, minFrec, maxFrec);
   				floatPart(dataADC, &vcc);
-  				sprintf(buf+strlen(buf), " Volume=%u, Encoder: Pressed=%lu Counter=%lu, Volt:%u.%u\n",
+  				sprintf(buf+strlen(buf), " Volume=%u ssbld=%d, Enc: Pressed=%lu Counter=%lu, Volt:%u.%u\n",
 										aVol,
+										ssbLoaded,
 										encKeyCnt, Encoder,
 										vcc.cel, vcc.dro);
 #ifdef SET_DBG_INFO
@@ -1109,9 +1197,7 @@ int main(void)
   			case msg_keyEvent:
   				switch (keyNumber) {
   					case KEY1:
-  						radioMode = radioModeNew;
-  						modeSwitchButton();
-  						//bandwitdthButton();
+  						newMode();
   					break;
   					case KEY2:
   						if (radioMode == FMm) {
@@ -1132,9 +1218,9 @@ int main(void)
   				keyNumber = NONE;
   			break;
   			case msg_rst:
-  				HAL_Delay(100);
+  				HAL_Delay(200);
   				Report(NULL, true, "Restart...\n");
-  				HAL_Delay(1000);
+  				HAL_Delay(800);
   				NVIC_SystemReset();
   			break;
   		}
@@ -1851,11 +1937,12 @@ int dl = 0;
 		uartRdy = 0;
 		//er = HAL_UART_Transmit(&huart1, (uint8_t *)buff, strlen(buff), 1000);
 		if (HAL_UART_Transmit_DMA(&huart1, (uint8_t *)buff, strlen(buff)) != HAL_OK) devError |= devUART;
-		//while (HAL_UART_GetState(&huart1) != HAL_UART_STATE_READY) {
-		//	if (HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_RX) break;
-		//	HAL_Delay(1);
-		//}
-		//
+		/*
+		while (HAL_UART_GetState(&huart1) != HAL_UART_STATE_READY) {
+			if (HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_RX) break;
+			HAL_Delay(1);
+		}
+		*/
 		va_end(args);
 #ifndef SET_STATIC_MEM
 		free(buff);
@@ -2066,11 +2153,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 					keyFlag = true;
 					keyNumber = KEY1;
 
-					//bandIdx++;
-					//if (bandIdx > lastBand) bandIdx = 0;
-					//radioModeNew = bandIdx;
-					radioMode = (radioMode + 1) & 3;
-					radioModeNew = rcModes[radioMode];
+					////bandIdx++;
+					////if (bandIdx > lastBand) bandIdx = 0;
+					////radioModeNew = bandIdx;
+					//radioMode = (radioMode + 1) & 3;
+					//radioModeNew = rcModes[radioMode];
 				}
 			}
 		}

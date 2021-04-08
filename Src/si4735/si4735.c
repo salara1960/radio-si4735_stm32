@@ -761,7 +761,7 @@ void SI4735_setTuneFrequencyAntennaCapacitor(uint16_t capacitor)
  */
 void SI4735_setFrequency(uint16_t freq)
 {
-	SI4735_waitToSend(); // Wait for the si473x is ready.
+//	SI4735_waitToSend(); // Wait for the si473x is ready.
 
     currentFrequency.value = freq;
     currentFrequencyParams.arg.FREQH = currentFrequency.raw.FREQH;
@@ -902,7 +902,7 @@ void SI4735_setFM0()
  * @param initialFreq initial frequency
  * @param step step used to go to the next channel
  */
-void SI4735_setAM1(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step)
+void SI4735_setAM(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step)
 {
 
     currentMinimumFrequency = fromFreq;
@@ -940,7 +940,7 @@ void SI4735_setAM1(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uin
  * @param initialFreq initial frequency (default frequency)
  * @param step step used to go to the next channel
  */
-void SI4735_setFM1(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step)
+void SI4735_setFM(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step)
 {
     currentMinimumFrequency = fromFreq;
     currentMaximumFrequency = toFreq;
@@ -2888,7 +2888,7 @@ void SI4735_setSSB0(uint8_t usblsb)
  *               value 2 (banary 10) = USB;
  *               value 1 (banary 01) = LSB.
  */
-void SI4735_setSSB1(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step, uint8_t usblsb)
+void SI4735_setSSB(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step, uint8_t usblsb)
 {
     currentMinimumFrequency = fromFreq;
     currentMaximumFrequency = toFreq;
@@ -3482,12 +3482,12 @@ void SI4735_setFrequencyNBFM(uint16_t freq)
     _delay(250); // For some reason I need to delay here.
 }
 //-------------------------------------------------------------------------------------------------
-void SI4735_loadSSB(uint8_t bwIdxSSB)
+bool SI4735_loadSSB(uint8_t bwIdxSSB)
 {
 	SI4735_queryLibraryId(); // Is it really necessary here? I will check it.
 	SI4735_patchPowerUp();
 	_delay(50);
-	SI4735_downloadPatch(ssb_patch_content, size_content);
+	bool ret = SI4735_downloadPatch(ssb_patch_content, size_content);
 	// Parameters
 	// AUDIOBW - SSB Audio bandwidth; 0 = 1.2kHz (default); 1=2.2kHz; 2=3kHz; 3=4kHz; 4=500Hz; 5=1kHz;
 	// SBCUTFLT SSB - side band cutoff filter for band passand low pass filter ( 0 or 1)
@@ -3495,8 +3495,11 @@ void SI4735_loadSSB(uint8_t bwIdxSSB)
 	// AVCEN - SSB Automatic Volume Control (AVC) enable; 0=disable; 1=enable (default).
 	// SMUTESEL - SSB Soft-mute Based on RSSI or SNR (0 or 1).
 	// DSP_AFCDIS - DSP AFC Disable or enable; 0=SYNC MODE, AFC enable; 1=SSB MODE, AFC disable.
-	SI4735_setSSBConfig(bwIdxSSB, 1, 0, 1, 0, 1);
+	SI4735_setSSBConfig(bwIdxSSB, 1, 0, 0, 0, 1);
+	_delay(25);
+	//showStatus();
 
+	return ret;
 }
 
 

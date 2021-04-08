@@ -83,6 +83,7 @@ typedef enum {
 	msg_decFrec,
 	msg_updateScr,
 	msg_showAll,
+	msg_setEpoch,
 	msg_none
 } evt_t;
 

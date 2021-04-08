@@ -33,7 +33,7 @@ void spi_ssd1306_WriteCmds(uint8_t *cmds, size_t sz)
 {
 	CS_OLED_SELECT();
 	HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_RESET);
-	if (withDMA) {
+	if (withDMA && (sz > 1)) {
 		spiRdy = 0;
 		uint16_t cnt = 128;
 		HAL_SPI_Transmit_DMA(portOLED, (uint8_t *)cmds, sz);
@@ -177,7 +177,7 @@ uint8_t zero[BUF_LINE_SIZE] = {0};
     for (uint8_t i = 0; i < 8; i++) {
     	dat[1] = 0xB0 | i;
     	spi_ssd1306_WriteCmds(dat, sizeof(dat));
-    	spi_ssd1306_WriteData((const char *)zero, sizeof(zero), 1);//0);
+    	spi_ssd1306_WriteData((const char *)zero, sizeof(zero), withDMA);//0);
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -192,7 +192,7 @@ uint8_t zero[BUF_LINE_SIZE] = {0};
     for (i = from - 1; i < to; i++) {
     	dat[1] = 0xB0 | i;
     	spi_ssd1306_WriteCmds(dat, sizeof(dat));
-    	spi_ssd1306_WriteData((const char *)zero, sizeof(zero), 0);
+    	spi_ssd1306_WriteData((const char *)zero, sizeof(zero), withDMA);
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -206,7 +206,7 @@ uint8_t buf[129];
     for (i = 0; i < 8; i++) {
     	dat[1] = 0xB0 | i;
     	spi_ssd1306_WriteCmds(dat, sizeof(dat));
-    	spi_ssd1306_WriteData((const char *)buf, sizeof(buf), 0);
+    	spi_ssd1306_WriteData((const char *)buf, sizeof(buf), withDMA);
     }
 }
 //-----------------------------------------------------------------------------------------
@@ -234,7 +234,7 @@ uint8_t first[] = {
 
 	for (uint8_t i = 0; i < 16; i++) {
 		spi_ssd1306_WriteCmds(cif_zero, 1);
-		spi_ssd1306_WriteData((const char *)&cif_zero[1], sizeof(cif_zero) - 1, 0);
+		spi_ssd1306_WriteData((const char *)&cif_zero[1], sizeof(cif_zero) - 1, withDMA);
 	}
 }
 //-----------------------------------------------------------------------------------------

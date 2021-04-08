@@ -1741,8 +1741,8 @@ si47x_response_status currentStatus;
 
     void SI4735_setAM0();
     void SI4735_setFM0();
-    void SI4735_setAM1(uint16_t fromFreq, uint16_t toFreq, uint16_t intialFreq, uint16_t step);
-    void SI4735_setFM1(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step);
+    void SI4735_setAM(uint16_t fromFreq, uint16_t toFreq, uint16_t intialFreq, uint16_t step);
+    void SI4735_setFM(uint16_t fromFreq, uint16_t toFreq, uint16_t initialFreq, uint16_t step);
 
     /**
      * @ingroup group08
@@ -2207,7 +2207,7 @@ si47x_response_status currentStatus;
 
     void SI4735_setSSBBfo(int offset);
     void SI4735_setSSBConfig(uint8_t AUDIOBW, uint8_t SBCUTFLT, uint8_t AVC_DIVIDER, uint8_t AVCEN, uint8_t SMUTESEL, uint8_t DSP_AFCDIS);
-    void SI4735_setSSB1(uint16_t fromFreq, uint16_t toFreq, uint16_t intialFreq, uint16_t step, uint8_t usblsb);
+    void SI4735_setSSB(uint16_t fromFreq, uint16_t toFreq, uint16_t intialFreq, uint16_t step, uint8_t usblsb);
     void SI4735_setSSB0(uint8_t usblsb);
     void SI4735_setSSBAudioBandwidth(uint8_t AUDIOBW);
     void SI4735_setSSBAutomaticVolumeControl(uint8_t AVCEN);
@@ -2229,7 +2229,7 @@ si47x_response_status currentStatus;
     si4735_eeprom_patch_header SI4735_downloadPatchFromEeprom(int eeprom_i2c_address);
     void SI4735_ssbPowerUp();
 
-    void SI4735_loadSSB(uint8_t bwx);
+    bool SI4735_loadSSB(uint8_t bwx);
 
     /**
      * @ingroup group06 Si47XX device Power Up
