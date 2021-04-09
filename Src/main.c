@@ -688,8 +688,10 @@ evt_t ret = msg_empty;
 		//
 		//
 		//
+		bool clr = false;
 		if ( radioMode == FMm) {
 			sprintf(stx, "\nAudio: %s %u", (SI4735_getCurrentPilot()) ? "STEREO" : "MONO", aVol);
+			if (!SI4735_getCurrentPilot()) clr = true;
 		} else {
 			sprintf(stx, "\n AGC:%s", statAGC[disableAgc]);
 			sprintf(stz, " ATT:%2d", agcNdx);
@@ -700,15 +702,12 @@ evt_t ret = msg_empty;
 				sprintf(stx, "\n BW:%s BFO:%d/%u", bandwitdthSSB[bwIdxSSB], currentBFO, currentBFOStep);
 			} else strcpy(stx, "\n BW:-");
 		}
-		withDMA = 1;
-		int len = sprintf(sline+strlen(sline), "%s", mkLineCenter(stx, wd));
-		if (len < len_sline) {
-			len_sline = len;
-			spi_ssd1306_clear_from_to(5, 6);
-		}
+		sprintf(sline+strlen(sline), "%s", mkLineCenter(stx, wd));
 #ifdef SET_ST_IPS
 		ST7789_WriteString(4, (fntKey->height << 1) + 12, sline, *tFont, invColor(GREEN), invColor(BLUE));
 #else
+		withDMA = 1;
+		if (clr) spi_ssd1306_clear_from_to(5, 6);
 		spi_ssd1306_text_xy(sline, 1, 3);
 		withDMA = 0;
 #endif
@@ -740,25 +739,10 @@ evt_t ret = msg_empty;
 
 	void newMode()
 	{
-
 		radioMode++;
 		radioMode &= 3;
 
 		modeSwitchButton();
-
-		/*if (!ssbLoaded) ssbLoaded = SI4735_loadSSB(bwIdxSSB);
-
-		char stx[32];
-		sprintf(stx, "loadSSB(%d)=%d", bwIdxSSB, ssbLoaded);
-		withDMA = 1;
-		spi_ssd1306_text_xy(stx, 1, 8);
-		withDMA = 0;
-
-		// Nothing to do if you are in FM mode
-		band[bandIdx].currentFreq = curFrec;
-		band[bandIdx].currentStep = stepFrec;
-
-		useBand();*/
 	}
 
 #endif

@@ -1,5 +1,5 @@
 # radio-si4735_stm32
-radio device project : si4735 chip + stm32f103 arm + ssd1306 display + NS8002 power amplifier chip
+radio device project : si4735 chip + stm32f103 + ssd1306 display + NS8002 power amplifier chip
 
 Hardware components :
 
