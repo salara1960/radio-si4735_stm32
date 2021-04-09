@@ -200,8 +200,8 @@ void Error_Handler(void);
 #define MAX_FIFO_SIZE  32
 #define MAX_UART_BUF  768
 
-#define TIME_encKeyPressed 50
-#define TIME_btKeyPressed 50
+#define TIME_encKeyPressed 75
+#define TIME_btKeyPressed 75
 
 
 #ifdef SET_OLED_SPI
@@ -281,8 +281,8 @@ volatile uint32_t cnt_err;
 	#define AMm 3
 	#define LW 4
 	#define SSB 1
-	#define MIN_ELAPSED_TIME 100
-	#define MIN_ELAPSED_RSSI_TIME 150
+	//#define MIN_ELAPSED_TIME 100
+	//#define MIN_ELAPSED_RSSI_TIME 150
 	//
 	//
 	//

@@ -185,7 +185,7 @@ void spi_ssd1306_clear_from_to(uint8_t from, uint8_t to)
 {
 uint8_t i;
 uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_SINGLE, 0};
-uint8_t zero[BUF_LINE_SIZE] = {0};
+uint8_t zero[BUF_LINE_SIZE + 1] = {0};
 
     zero[0] = OLED_CONTROL_BYTE_DATA_STREAM;
 

@@ -24,8 +24,6 @@
 "Src/stm32f1xx_it.o"
 "Src/syscalls.o"
 "Src/system_stm32f1xx.o"
-"Src/ips/fonts.o"
-"Src/ips/st7789.o"
 "Src/oled/fontik.o"
 "Src/oled/ssd1306.o"
 "Src/oled/ssd1306_spi.o"

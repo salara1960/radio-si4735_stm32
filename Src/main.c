@@ -58,7 +58,8 @@
 //const char *version = "Version 1.7.1 (04.04.2021)";
 //const char *version = "Version 1.7.2 (05.04.2021)";
 //const char *version = "Version 1.8 (07.04.2021)";// add ssd1306(spi) display
-const char *version = "Version 1.8.1 (07.04.2021)";// optimize sources (used DMA for spi1)
+//const char *version = "Version 1.8.1 (07.04.2021)";// optimize sources (used DMA for spi1)
+const char *version = "Version 1.8.2 (09.04.2021)";// minor changes in ShowAll() function
 
 
 /* USER CODE END PD */
@@ -122,10 +123,10 @@ int tdl = 0;
 
 	uint32_t spiRdy = 1;
 	uint32_t spi_cnt = 0;
-	char sline[128] = {0};
+	//char sline[128] = {0};
 	char stline[40] = {0};
 	uint16_t lcorX = 0;
-	int len_sline = 0;
+	int scr_len = 0;
 
 	#ifdef SET_ST_IPS
 		const FontDef *fntKey = &Font_16x26;
@@ -221,7 +222,7 @@ volatile uint32_t kbdCnt = 0;
 	//
 	const char *statAGC[] = {"ON", "OFF"};
 	const uint8_t rcModes[] = {FMm, LSBm, USBm, AMm};
-	const char *bandModeDesc[] = {"FM ", "LSB", "USB", "AM "};
+	const char *bandModeDesc[] = {"FM", "LSB", "USB", "AM"};
 	uint8_t bwIdxSSB = 2;
 	const char *bandwitdthSSB[] = {"1.2", "2.2", "3.0", "4.0", "0.5", "1.0"};
 	uint8_t bwIdxAM = 1;
@@ -331,11 +332,12 @@ void putMsg(evt_t evt)
 {
 
 	if (cnt_evt > (MAX_FIFO_SIZE - 5)) return;
-
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-
+	//
+	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI3_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+	//
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -363,18 +365,21 @@ void putMsg(evt_t evt)
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
 }
 //-------------------------------------------------------------------------------------------
 evt_t getMsg()
 {
 evt_t ret = msg_empty;
 
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI3_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -394,6 +399,7 @@ evt_t ret = msg_empty;
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
@@ -465,13 +471,14 @@ evt_t ret = msg_empty;
 	void useBand()
 	{
 		//curFrec = SI4735_getFrequency();
+		currentWorkFrequency = curFrec;
 
 		if (band[bandIdx].bandType == FM_BAND_TYPE) {
 			radioMode = FMm;
 			SI4735_setTuneFrequencyAntennaCapacitor(0);
 			SI4735_setFM(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
 			bfoOn = false;
-			ssbLoaded = false;
+			//ssbLoaded = false;
 		} else {
 			if ((band[bandIdx].bandType == MW_BAND_TYPE) || (band[bandIdx].bandType == LW_BAND_TYPE))
 				SI4735_setTuneFrequencyAntennaCapacitor(0);
@@ -496,7 +503,7 @@ evt_t ret = msg_empty;
 		stepFrec = band[bandIdx].currentStep;
 		minFrec = band[bandIdx].minimumFreq;
 		maxFrec = band[bandIdx].maximumFreq;
-		_delay(100);
+		_delay(50);//100
 		//showStatus();
 	}
 	void bandUp()
@@ -540,7 +547,7 @@ evt_t ret = msg_empty;
 	}
 	void bandwitdthButton()
 	{
-		uint8_t yes = 1;
+		//uint8_t yes = 1;
 
 		if (radioMode == LSBm || radioMode == USBm) {
 			bwIdxSSB++;
@@ -555,10 +562,10 @@ evt_t ret = msg_empty;
 			bwIdxAM++;
 			if (bwIdxAM > 6) bwIdxAM = 0;
 			SI4735_setBandwidth(bwIdxAM, 1);
-		} else yes = 0;
+		}// else yes = 0;
 		//resetBuffer();
 		//showStatus();
-		if (yes) _delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+		//if (yes) _delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
 	}
 	void bfoSwitchButton()
 	{
@@ -566,7 +573,7 @@ evt_t ret = msg_empty;
 			bfoOn = !bfoOn;
 			//if (bfoOn) showBFO();
 			//showStatus();
-			_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+			//_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
 		}
 		//showFrequency();
 	}
@@ -634,7 +641,7 @@ evt_t ret = msg_empty;
 		       else SI4735_volumeDown();
 		aVol = SI4735_getVolume();
 		//showVolume();
-		_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
+		//_delay(MIN_ELAPSED_TIME); // waits a little more for releasing the button.
 	}
 	//
 	int StationID(const uint16_t freq)
@@ -657,59 +664,62 @@ evt_t ret = msg_empty;
 
 		char stx[32] = {0};
 		char stz[32] = {0};
+		char sl[128];
 #ifdef SET_ST_IPS
 		uint16_t wd = tFont->width;
 #else
 		uint16_t wd = FONT_WIDTH;
 #endif
 		//
-		memset(sline, 0, sizeof(sline));
-		sprintf(stx, "%s", bandModeDesc[radioMode]);
+		memset(sl, 0, sizeof(sl));
+		sprintf(stx, "%s ", bandModeDesc[radioMode]);
 		if (radioMode == FMm) {
 			lastFrecFM = curFrec;
 			sprintf(stx+strlen(stx), "%u.%02uM", curFrec / 100, curFrec % 100);
 		} else {
-			sprintf(stx+strlen(stx), " %uK", curFrec);
+			sprintf(stx+strlen(stx), "%uK", curFrec);
 			//if (radioMode == POWER_UP_SW) lastFrecSW = curFrec;
 			//else
 			if (radioMode == LW) lastFrecLW = curFrec;
 			else if (radioMode == AMm) lastFrecAM = curFrec;
 		}
 		sprintf(stz, "%uK", stepFrec);
-		strncpy(sline, mkLineWidth(stx, stz, wd), 16);
+		sprintf(sl, "%s\n", mkLineWidth(stx, stz, wd));
 		//
-		strcpy(stx, "\n SNR:");
+		strcpy(stx, " SNR:");
 		if (radioSNR < 10) strcat(stx, " ");
 		sprintf(stx+strlen(stx), "%u", radioSNR);
 		strcpy(stz, "RSSI:");
 		if (radioRSSI < 10) strcat(stz, " ");
 		sprintf(stz+strlen(stz), "%u", radioRSSI);
-		sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
+
+		sprintf(sl+strlen(sl), "%s\n", mkLineWidth(stx, stz, wd));
 		//
-		//
-		//
-		bool clr = false;
 		if ( radioMode == FMm) {
-			sprintf(stx, "\nAudio: %s %u", (SI4735_getCurrentPilot()) ? "STEREO" : "MONO", aVol);
-			if (!SI4735_getCurrentPilot()) clr = true;
+			sprintf(stx, "Audio: %s %u", (SI4735_getCurrentPilot()) ? "STEREO" : "MONO", aVol);
 		} else {
-			sprintf(stx, "\n AGC:%s", statAGC[disableAgc]);
-			sprintf(stz, " ATT:%2d", agcNdx);
-			sprintf(sline+strlen(sline), "%s", mkLineWidth(stx, stz, wd));
+			sprintf(stx, "AGC:%s", statAGC[disableAgc & 1]);
+			sprintf(stz, "ATT:%2d", agcNdx);
+
+			sprintf(sl+strlen(sl), "%s\n", mkLineWidth(stx, stz, wd));
+			//
 			if (radioMode == AMm) {
-				sprintf(stx, "\n BW:%s", bandwitdthAM[bwIdxAM]);
+				sprintf(stx, "BW:%s", bandwitdthAM[bwIdxAM]);
 			} else if ((radioMode == USBm) || (radioMode == LSBm)) {
-				sprintf(stx, "\n BW:%s BFO:%d/%u", bandwitdthSSB[bwIdxSSB], currentBFO, currentBFOStep);
-			} else strcpy(stx, "\n BW:-");
+				sprintf(stx, "BW:%s BFO:%d/%u", bandwitdthSSB[bwIdxSSB], currentBFO, currentBFOStep);
+			} else strcpy(stx, "BW:-");
 		}
-		sprintf(sline+strlen(sline), "%s", mkLineCenter(stx, wd));
+
+		sprintf(sl+strlen(sl), "%s", mkLineCenter(stx, wd));
 #ifdef SET_ST_IPS
 		ST7789_WriteString(4, (fntKey->height << 1) + 12, sline, *tFont, invColor(GREEN), invColor(BLUE));
 #else
+		int len = strlen(sl);
 		withDMA = 1;
-		if (clr) spi_ssd1306_clear_from_to(5, 6);
-		spi_ssd1306_text_xy(sline, 1, 3);
+		if (len < scr_len) spi_ssd1306_clear_from_to(5, 6);
+		spi_ssd1306_text_xy(sl, 1, 3);
 		withDMA = 0;
+		scr_len = len;
 #endif
 	}
 
@@ -742,7 +752,7 @@ evt_t ret = msg_empty;
 		radioMode++;
 		radioMode &= 3;
 
-		modeSwitchButton();
+		//modeSwitchButton();
 	}
 
 #endif
@@ -1140,7 +1150,7 @@ int main(void)
   				else
   					sprintf(buf+strlen(buf), "%u (%u-%u) KHz,", curFrec, minFrec, maxFrec);
   				floatPart(dataADC, &vcc);
-  				sprintf(buf+strlen(buf), " Volume=%u ssbld=%d, Enc: Pressed=%lu Counter=%lu, Volt:%u.%u\n",
+  				sprintf(buf+strlen(buf), " Volume=%u ssbld=%d, Enc: key=%lu cnt=%lu, Volt:%u.%u\n",
 										aVol,
 										ssbLoaded,
 										encKeyCnt, Encoder,
@@ -1181,7 +1191,7 @@ int main(void)
   			case msg_keyEvent:
   				switch (keyNumber) {
   					case KEY1:
-  						newMode();
+  						newMode();//change mode : FM, LSB, USB, AM
   					break;
   					case KEY2:
   						if (radioMode == FMm) {
