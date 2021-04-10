@@ -9,10 +9,9 @@
 //------------------------------------------------------------------------
 
 uint8_t spi_invert = OLED_CMD_DISPLAY_NORMAL;
-//extern uint8_t spiRdy;
 uint8_t withDMA = 0;
-
 const uint32_t waits = 100;
+bool invText = false;
 
 
 void CS_OLED_SELECT() {}
@@ -70,15 +69,17 @@ void spi_ssd1306_WriteData(const char *buf, size_t sz, uint8_t with)
 	CS_OLED_DESELECT();
 }
 //-----------------------------------------------------------------------------------------
-void spi_ssd1306_shift(uint8_t cy, uint8_t on_off)//0x2e - deactivate, 0x2f - activate
+bool spi_ssd1306_shift(uint8_t cy, uint8_t on_off)//0x2e - deactivate, 0x2f - activate
 {
+bool ret = true;
+
 	uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_STREAM,
-						OLED_RIGHT_HORIZONTAL_SCROLL,//to left shift
+						OLED_LEFT_HORIZONTAL_SCROLL,//to left shift
 						OLED_DUMMY_BYTE,// Dummy
 						cy - 1,//Start page
 						// 0 -   5 frame, 1 -  64 frame, 2 - 128 frame, 3 - 256 frame
 						// 4 -   3 frame, 5 -   4 frame, 6 -  25 frame, 7 -   2 frame
-						OLED_TIME_INTERVAL,//Time Interval as 2 frames
+						OLED_TIME_INTERVAL,//Time Interval as 2 frames// 5 - !!!
 						cy - 1,//Stop page
 						OLED_DUMMY_BYTE,//Dummy
 						0xff,
@@ -88,10 +89,12 @@ void spi_ssd1306_shift(uint8_t cy, uint8_t on_off)//0x2e - deactivate, 0x2f - ac
 		dat[0] = OLED_CONTROL_BYTE_CMD_SINGLE;
 		dat[1] = OLED_CMD_SHIFT_STOP;
 		len = 2;
+		ret = false;
 	}
 
 	spi_ssd1306_WriteCmds(dat, len);
 
+	return ret;
 }
 //-----------------------------------------------------------------------------------------
 void spi_ssd1306_on(unsigned char flag)
@@ -169,43 +172,61 @@ uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_SINGLE, 0};
 
 }
 //-----------------------------------------------------------------------------------------
-void spi_ssd1306_clear()
+void spi_ssd1306_clear_line(uint8_t cy, bool inv)
 {
-uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_SINGLE, 0};
-uint8_t zero[BUF_LINE_SIZE] = {0};
+uint8_t cif_zero[] = {OLED_CONTROL_BYTE_DATA_STREAM, 0, 0, 0, 0, 0, 0, 0, 0};
+size_t len = sizeof(cif_zero);
+uint8_t first[] = {
+	OLED_CONTROL_BYTE_CMD_STREAM,
+	OLED_CMD_SET_COLUMN_RANGE,
+	0,
+	0x7f,
+	OLED_CMD_SET_PAGE_RANGE,
+	cy - 1,
+	7
+};
 
-    for (uint8_t i = 0; i < 8; i++) {
-    	dat[1] = 0xB0 | i;
-    	spi_ssd1306_WriteCmds(dat, sizeof(dat));
-    	spi_ssd1306_WriteData((const char *)zero, sizeof(zero), withDMA);//0);
-    }
+	if (inv) for (uint8_t j = 1; j < len; j++) cif_zero[j] = ~cif_zero[j];
+
+	spi_ssd1306_WriteCmds(first, sizeof(first));
+
+	for (uint8_t i = 0; i < 16; i++) {
+		spi_ssd1306_WriteCmds(cif_zero, 1);
+		spi_ssd1306_WriteData((const char *)&cif_zero[1], len - 1, withDMA);
+	}
 }
 //-----------------------------------------------------------------------------------------
 void spi_ssd1306_clear_from_to(uint8_t from, uint8_t to)
 {
-uint8_t i;
 uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_SINGLE, 0};
 uint8_t zero[BUF_LINE_SIZE + 1] = {0};
+size_t len = sizeof(dat);
 
     zero[0] = OLED_CONTROL_BYTE_DATA_STREAM;
 
-    for (i = from - 1; i < to; i++) {
+    for (uint8_t i = from - 1; i < to; i++) {
     	dat[1] = 0xB0 | i;
-    	spi_ssd1306_WriteCmds(dat, sizeof(dat));
+    	spi_ssd1306_WriteCmds(dat, len);
     	spi_ssd1306_WriteData((const char *)zero, sizeof(zero), withDMA);
     }
+}
+//-----------------------------------------------------------------------------------------
+void spi_ssd1306_clear()
+{
+    spi_ssd1306_clear_from_to(1, 8);
 }
 //-----------------------------------------------------------------------------------------
 void spi_ssd1306_pattern()
 {
 uint8_t i, dat[] = {OLED_CONTROL_BYTE_CMD_SINGLE, 0};
 uint8_t buf[129];
+size_t len = sizeof(dat);
 
     buf[0] = OLED_CONTROL_BYTE_DATA_STREAM;
     for (i = 1; i < BUF_LINE_SIZE; i++) buf[i] = 0xFF >> (i % 8);
     for (i = 0; i < 8; i++) {
     	dat[1] = 0xB0 | i;
-    	spi_ssd1306_WriteCmds(dat, sizeof(dat));
+    	spi_ssd1306_WriteCmds(dat, len);
     	spi_ssd1306_WriteData((const char *)buf, sizeof(buf), withDMA);
     }
 }
@@ -217,32 +238,12 @@ uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_STREAM, OLED_CMD_SET_CONTRAST, value};
 	spi_ssd1306_WriteCmds(dat, sizeof(dat));
 }
 //-----------------------------------------------------------------------------------------
-void spi_ssd1306_clear_line(uint8_t cy)
-{
-uint8_t cif_zero[] = {OLED_CONTROL_BYTE_DATA_STREAM, 0, 0, 0, 0, 0, 0, 0, 0};
-uint8_t first[] = {
-	OLED_CONTROL_BYTE_CMD_STREAM,
-	OLED_CMD_SET_COLUMN_RANGE,
-	0,
-	0x7f,
-	OLED_CMD_SET_PAGE_RANGE,
-	cy - 1,
-	7
-};
-
-	spi_ssd1306_WriteCmds(first, sizeof(first));
-
-	for (uint8_t i = 0; i < 16; i++) {
-		spi_ssd1306_WriteCmds(cif_zero, 1);
-		spi_ssd1306_WriteData((const char *)&cif_zero[1], sizeof(cif_zero) - 1, withDMA);
-	}
-}
-//-----------------------------------------------------------------------------------------
-void spi_ssd1306_text_xy(const char *stroka, uint8_t cx, uint8_t cy)
+void spi_ssd1306_text_xy(const char *stroka, uint8_t cx, uint8_t cy, bool inv)
 {
 uint8_t i, lin = cy - 1, col = cx - 1;
 int len = strlen(stroka);
 uint8_t dat[] = {OLED_CONTROL_BYTE_CMD_STREAM, 0, 0x10, 0};
+size_t dl = sizeof(dat);
 uint8_t cif[] = {OLED_CONTROL_BYTE_DATA_STREAM, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t first[] = {
 	OLED_CONTROL_BYTE_CMD_STREAM,
@@ -258,9 +259,10 @@ uint8_t first[] = {
 	for (i = 0; i < len; i++) {
 		if (stroka[i] == '\n') {
 			dat[3] = 0xB0 | ++lin;
-			spi_ssd1306_WriteCmds(dat, sizeof(dat));
+			spi_ssd1306_WriteCmds(dat, dl);
 		} else {
 			memcpy(&cif[1], &font8x8[(uint8_t)stroka[i]][0], FONT_WIDTH);
+			if (inv) for (uint8_t j = 1; j < sizeof(cif); j++) cif[j] = ~cif[j];
 			spi_ssd1306_WriteCmds(cif, 1);
 			spi_ssd1306_WriteData((const char *)&cif[1], sizeof(cif) - 1, withDMA);
 		}
@@ -269,7 +271,7 @@ uint8_t first[] = {
 //-----------------------------------------------------------------------------------------
 void spi_ssd1306_text(const char *stroka)
 {
-	if (stroka) spi_ssd1306_text_xy(stroka, 1, 1);
+	if (stroka) spi_ssd1306_text_xy(stroka, 1, 1, false);
 }
 //-----------------------------------------------------------------------------------------
 uint8_t spi_ssd1306_calcx(int len)

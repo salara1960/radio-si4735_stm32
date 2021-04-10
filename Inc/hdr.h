@@ -5,7 +5,7 @@
  *      Author: alarm
  */
 
-//#define SET_DBG_INFO
+#define SET_DBG_INFO
 
 //#define SET_STATIC_MEM
 

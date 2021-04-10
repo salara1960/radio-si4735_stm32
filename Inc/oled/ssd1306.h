@@ -63,6 +63,7 @@
 
 #define OLED_WIDTH 128
 #define FONT_WIDTH 8
+#define MAX_FONT_CHAR (OLED_WIDTH / FONT_WIDTH)
 
 #define OLED_DMA DMA1_Channel3
 
@@ -83,13 +84,12 @@
 #endif
 
 #ifdef SET_OLED_SPI
-	//uint8_t spiRdy;
 	uint8_t withDMA;
 
 	void spi_ssd1306_Reset();
 	void spi_ssd1306_WriteCmds(uint8_t *cmds, size_t sz);
 	void spi_ssd1306_WriteData(const char *buf, size_t sz, uint8_t with);
-	void spi_ssd1306_shift(uint8_t cy, uint8_t on_off);
+	bool spi_ssd1306_shift(uint8_t cy, uint8_t on_off);
 	void spi_ssd1306_on(uint8_t flag);
 	void spi_ssd1306_init();
 	void spi_ssd1306_invert();
@@ -97,8 +97,8 @@
 	void spi_ssd1306_clear_from_to(uint8_t from, uint8_t to);
 	void spi_ssd1306_pattern();
 	void spi_ssd1306_contrast(uint8_t value);
-	void spi_ssd1306_clear_line(uint8_t cy);
-	void spi_ssd1306_text_xy(const char *stroka, uint8_t cx, uint8_t cy);
+	void spi_ssd1306_clear_line(uint8_t cy, bool inv);
+	void spi_ssd1306_text_xy(const char *stroka, uint8_t cx, uint8_t cy, bool inv);
 	void spi_ssd1306_text(const char *stroka);
 	uint8_t spi_ssd1306_calcx(int len);
 	char *mkLineCenter(char *str, uint16_t width);

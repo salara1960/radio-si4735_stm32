@@ -59,7 +59,8 @@
 //const char *version = "Version 1.7.2 (05.04.2021)";
 //const char *version = "Version 1.8 (07.04.2021)";// add ssd1306(spi) display
 //const char *version = "Version 1.8.1 (07.04.2021)";// optimize sources (used DMA for spi1)
-const char *version = "Version 1.8.2 (09.04.2021)";// minor changes in ShowAll() function
+//const char *version = "Version 1.8.2 (09.04.2021)";// minor changes in ShowAll() function
+const char *version = "Version 1.8.3 (10.04.2021)";// minor changes in ssd1306's display library
 
 
 /* USER CODE END PD */
@@ -127,6 +128,7 @@ int tdl = 0;
 	char stline[40] = {0};
 	uint16_t lcorX = 0;
 	int scr_len = 0;
+	bool shiftStart = false;
 
 	#ifdef SET_ST_IPS
 		const FontDef *fntKey = &Font_16x26;
@@ -715,10 +717,10 @@ evt_t ret = msg_empty;
 		ST7789_WriteString(4, (fntKey->height << 1) + 12, sline, *tFont, invColor(GREEN), invColor(BLUE));
 #else
 		int len = strlen(sl);
-		withDMA = 1;
+		//withDMA = 1;
 		if (len < scr_len) spi_ssd1306_clear_from_to(5, 6);
-		spi_ssd1306_text_xy(sl, 1, 3);
-		withDMA = 0;
+		spi_ssd1306_text_xy(sl, 1, 3, false);
+		//withDMA = 0;
 		scr_len = len;
 #endif
 	}
@@ -737,13 +739,14 @@ evt_t ret = msg_empty;
 						invColor(GREEN));
 #elif defined(SET_OLED_SPI)
 
+		//spi_ssd1306_shift(2, OLED_CMD_SHIFT_STOP);
+
+		memset(st, 0x20, MAX_FONT_CHAR);
 		int len = strlen(fm_station[stationIdx].name);
-		if (len > (OLED_WIDTH / FONT_WIDTH)) len = OLED_WIDTH / FONT_WIDTH;
-		sprintf(st, "%.*s", strlen(fm_station[stationIdx].name), fm_station[stationIdx].name);
-		*(st + len) = '\0';
-		withDMA = 1;
-		spi_ssd1306_text_xy(mkLineCenter(st, FONT_WIDTH), 1, 2);
-		withDMA = 0;
+		if (len > MAX_FONT_CHAR) len = MAX_FONT_CHAR;
+		memcpy(st + ((MAX_FONT_CHAR - len) >> 1), fm_station[stationIdx].name, len);
+		*(st + MAX_FONT_CHAR) = '\0';
+		spi_ssd1306_text_xy(st, 1, 2, true);
 #endif
 	}
 
@@ -894,8 +897,6 @@ int main(void)
     	radioSNR = lradioSNR = SI4735_getCurrentSNR();
     	radioRSSI = lradioRSSI = SI4735_getCurrentRSSI();
 
-    	showAll();
-
     }
 
 #endif
@@ -931,7 +932,7 @@ int main(void)
   	HAL_TIM_Base_Start_IT(&htim2);
 
   	lastEncoder = Encoder = TIM4->CNT;
-  	putMsg(msg_encCounter);
+  	putMsg(msg_500ms);
 
     /* Infinite loop */
 
@@ -941,6 +942,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
   	//LOOP_FOREVER();
+#ifdef SET_OLED_SPI
+  	withDMA = 1;
+#endif
 
   	evt_t evt = msg_none;
   	while (1) {
@@ -1002,10 +1006,10 @@ int main(void)
 							SI4735_setFrequency(curFrec);
 							if (radioMode == FMm) ys = 1;
 						break;
-						case key_eq:
+						/*case key_eq:
 							newMode();
 							ys = 1;
-						break;
+						break;*/
 						case key_sp:
 							//bandwitdthButton();
 							//ys = 1;
@@ -1014,7 +1018,8 @@ int main(void)
 								memset(ep_str, 0, sizeof(ep_str));
 								ep_time = 0;
 #ifdef SET_OLED_SPI
-								spi_ssd1306_text_xy("T:", 1, 8);
+								spi_ssd1306_clear_line(8, true);
+								spi_ssd1306_text_xy("Time:", 1, 8, true);
 #endif
 								ep_tmr = get_tmr(20);
 							} else {
@@ -1024,14 +1029,14 @@ int main(void)
 								putMsg(msg_setEpoch);
 							}
 						break;
-						case key_100:
+						/*case key_100:
 							bandUp();
 							ys = 1;
 						break;
 						case key_200:
 							bandDown();
 							ys = 1;
-						break;
+						break;*/
 						case key_0:
 							//disableAgc++;
 							//disableAgc &= 1;
@@ -1052,7 +1057,7 @@ int main(void)
 									char ch = (kid - key_0) + 0x30;
 									sprintf(ep_str+strlen(ep_str), "%c", ch);
 #ifdef SET_OLED_SPI
-									spi_ssd1306_text_xy(ep_str, 3, 8);
+									spi_ssd1306_text_xy(ep_str, 6, 8, true);
 #endif
 									ep_tmr = get_tmr(20);
 								}
@@ -1061,9 +1066,9 @@ int main(void)
 					}
 					if (ys == 1) {
 						putMsg(msg_updateScr);
-					} else if (!ys) {
-						updateStation(ptr, stline);
-					}
+					}// else if (!ys) {
+						//updateStation(ptr, stline);
+					//}
 				}
 
 			}
@@ -1073,7 +1078,7 @@ int main(void)
   				ep_tmr = 0;
   				ep_start = false;
 #ifdef SET_OLED_SPI
-  				spi_ssd1306_clear_from_to(8, 8);
+  				spi_ssd1306_clear_line(8, false);
 #endif
   			}
   		}
@@ -1096,7 +1101,7 @@ int main(void)
   					set_Date(epoch);
   				}
 #ifdef SET_OLED_SPI
-  				spi_ssd1306_clear_from_to(8, 8);
+  				spi_ssd1306_clear_line(8, false);
 #endif
   			break;
   			//
@@ -1129,6 +1134,24 @@ int main(void)
 			break;
   			case msg_showAll:
   				showAll();
+/*#ifdef SET_OLED_SPI
+  				spi_ssd1306_shift(2, OLED_CMD_SHIFT_START);
+#endif*/
+  			break;
+  			case msg_500ms:
+  			{
+  				SI4735_getCurrentReceivedSignalQuality1(0);
+  				radioSNR = SI4735_getCurrentSNR();
+  				radioRSSI = SI4735_getCurrentRSSI();
+  				bool y = false;
+  				     if (lradioSNR  != radioSNR)  y = true;
+  				else if (lradioRSSI != radioRSSI) y = true;
+  				if (y) {
+  					lradioSNR = radioSNR;
+  					lradioRSSI = radioRSSI;
+  					msg = msg_showAll;
+  				}
+  			}
   			break;
   			case msg_sec:
   			{
@@ -1136,7 +1159,7 @@ int main(void)
 #if defined(SET_ST_IPS)
   				ST7789_WriteString(4, 0, buf, *fntKey, invColor(YELLOW), invColor(BLUE));
 #elif defined(SET_OLED_SPI)
-  				spi_ssd1306_text_xy(buf, 2, 1);
+  				spi_ssd1306_text_xy(buf, 2, 1, false);
 #endif
   				sprintf(buf+strlen(buf), " [%lu] Error(%lu): 0x%02X, Fifo: %d/%d, Radio: mode=%s Frec=",
   					                   ++pack_num, cnt_err, devError,
@@ -1175,17 +1198,6 @@ int main(void)
 
   				if (devError) errLedOn(NULL);
 
-  				SI4735_getCurrentReceivedSignalQuality1(0);
-  				radioSNR = SI4735_getCurrentSNR();
-  				radioRSSI = SI4735_getCurrentRSSI();
-  				bool y = false;
-  				     if (lradioSNR  != radioSNR)  y = true;
-  				else if (lradioRSSI != radioRSSI) y = true;
-  				if (y) {
-  					lradioSNR = radioSNR;
-  					lradioRSSI = radioRSSI;
-  					msg = msg_showAll;
-  				}
   			}
   			break;
   			case msg_keyEvent:
@@ -2035,6 +2047,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				if (ev != msg_none)	putMsg(ev);
 			}
 		}
+
+		if (!(HalfSecCounter % _500ms)) putMsg(msg_500ms);
 
 		if (!(HalfSecCounter % _1s)) {//seconda
 			secCounter++;

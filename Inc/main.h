@@ -74,8 +74,9 @@ enum {
 typedef enum {
 	msg_empty = 0,
 	msg_rst,
+	msg_500ms,
 	msg_sec,
-	msg_encCounter,
+//	msg_encCounter,
 //	msg_encPressed,
 	msg_encReleased,
 	msg_keyEvent,
@@ -205,8 +206,10 @@ void Error_Handler(void);
 
 
 #ifdef SET_OLED_SPI
-	//#define CS_OLED_SELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_RESET)
-	//#define CS_OLED_DESELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_SET)
+	#ifdef WITH_CS
+		#define CS_OLED_SELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_RESET)
+		#define CS_OLED_DESELECT() HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, GPIO_PIN_SET)
+	#endif
 #endif
 
 
