@@ -76,6 +76,7 @@ typedef enum {
 	msg_rst,
 	msg_500ms,
 	msg_sec,
+	msg_showLibs,
 //	msg_encCounter,
 //	msg_encPressed,
 	msg_encReleased,
@@ -129,18 +130,15 @@ void Error_Handler(void);
 #define BT3_EXTI_IRQn EXTI3_IRQn
 #define IRED_Pin GPIO_PIN_4
 #define IRED_GPIO_Port GPIOA
+#define ENC_KEY_Pin GPIO_PIN_6
+#define ENC_KEY_GPIO_Port GPIOA
+#define ENC_KEY_EXTI_IRQn EXTI9_5_IRQn
 #define OLED_DC_Pin GPIO_PIN_7
 #define OLED_DC_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_0
 #define LED1_GPIO_Port GPIOB
 #define SI_RST_Pin GPIO_PIN_12
 #define SI_RST_GPIO_Port GPIOB
-#define SI_INT_Pin GPIO_PIN_14
-#define SI_INT_GPIO_Port GPIOB
-#define SI_INT_EXTI_IRQn EXTI15_10_IRQn
-#define ENC_KEY_Pin GPIO_PIN_15
-#define ENC_KEY_GPIO_Port GPIOA
-#define ENC_KEY_EXTI_IRQn EXTI15_10_IRQn
 #define OLED_SCK_Pin GPIO_PIN_3
 #define OLED_SCK_GPIO_Port GPIOB
 #define OLED_RST_Pin GPIO_PIN_4

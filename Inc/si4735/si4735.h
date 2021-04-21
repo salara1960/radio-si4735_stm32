@@ -162,11 +162,11 @@
 #define USB_MODE 2 // 10
 
 // Parameters
-#define SI473X_RDS_OUTPUT_ONLY 0b00000000      // RDS output only (no audio outputs) Si4749 only
-#define SI473X_ANALOG_AUDIO 0b00000101         // Analog Audio Inputs
-#define SI473X_DIGITAL_AUDIO1 0b00001011       // Digital audio output (DCLK, LOUT/DFS, ROUT/DIO)
-#define SI473X_DIGITAL_AUDIO2 0b10110000       // Digital audio outputs (DCLK, DFS, DIO)
-#define SI473X_ANALOG_DIGITAL_AUDIO 0b10110101 // Analog and digital audio outputs (LOUT/ROUT and DCLK, DFS,DIO)
+#define SI473X_RDS_OUTPUT_ONLY 0 //0b00000000      // RDS output only (no audio outputs) Si4749 only
+#define SI473X_ANALOG_AUDIO 5//0b00000101         // Analog Audio Inputs
+#define SI473X_DIGITAL_AUDIO1 0x0b//0b00001011       // Digital audio output (DCLK, LOUT/DFS, ROUT/DIO)
+#define SI473X_DIGITAL_AUDIO2 0xb0//0b10110000       // Digital audio outputs (DCLK, DFS, DIO)
+#define SI473X_ANALOG_DIGITAL_AUDIO 0xb5//0b10110101 // Analog and digital audio outputs (LOUT/ROUT and DCLK, DFS,DIO)
 
 // Other parameters
 #define FM_CURRENT_MODE 0
@@ -1071,6 +1071,8 @@ uint8_t currentAudioMode;// = SI473X_ANALOG_AUDIO; //!< Current audio mode used 
 uint8_t currentSsbStatus;// = 0;// 1 = LSB and 2 = USB; 0 = AM, FM or WB
 int8_t audioMuteMcuPin;// = -1;
 
+
+si47x_firmware_query_library libs;
 
 /**
  * @brief Interrupt Function
@@ -2222,7 +2224,8 @@ si47x_response_status currentStatus;
     void SI4735_loadPatchNBFM(const uint8_t *patch_content, const uint16_t patch_content_size);
     void SI4735_setFrequencyNBFM(uint16_t freq);
 
-    si47x_firmware_query_library SI4735_queryLibraryId();
+    //si47x_firmware_query_library
+	void SI4735_queryLibraryId();
     void SI4735_patchPowerUp();
     bool SI4735_downloadPatch(const uint8_t *ssb_patch_content, const uint16_t ssb_patch_content_size);
     void SI4735_loadPatch(const uint8_t *ssb_patch_content, const uint16_t ssb_patch_content_size, uint8_t ssb_audiobw);

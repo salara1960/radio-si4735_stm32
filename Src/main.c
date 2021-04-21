@@ -60,7 +60,14 @@
 //const char *version = "Version 1.8 (07.04.2021)";// add ssd1306(spi) display
 //const char *version = "Version 1.8.1 (07.04.2021)";// optimize sources (used DMA for spi1)
 //const char *version = "Version 1.8.2 (09.04.2021)";// minor changes in ShowAll() function
-const char *version = "Version 1.8.3 (10.04.2021)";// minor changes in ssd1306's display library
+//const char *version = "Version 1.8.3 (10.04.2021)";// minor changes in ssd1306's display library
+//const char *version = "Version 1.8.4 (12.04.2021)";
+//const char *version = "Version 1.8.5 (13.04.2021)";
+//const char *version = "Version 1.8.6 (14.04.2021)";
+//const char *version = "Version 1.8.7 (15.04.2021)";//set clk to 9MHz for spi1 (display)
+//const char *version = "Version 1.8.8 (16.04.2021)";
+//const char *version = "Version 1.8.9 (19.04.2021)";
+const char *version = "Version 1.9.0 (21.04.2021)";//remove si_int_pin support
 
 
 /* USER CODE END PD */
@@ -98,7 +105,8 @@ uint8_t cnt_evt = 0;
 uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
-volatile time_t epoch = 1617787599;//1617619412;//1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
+//1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
+volatile time_t epoch = 1618993333;//1618846376;//1618569393;//1618479099;//1618309300;//1618234438;//1617787599;//1617619412;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -129,6 +137,7 @@ int tdl = 0;
 	uint16_t lcorX = 0;
 	int scr_len = 0;
 	bool shiftStart = false;
+	uint32_t clr_tmr = 0;
 
 	#ifdef SET_ST_IPS
 		const FontDef *fntKey = &Font_16x26;
@@ -242,11 +251,11 @@ volatile uint32_t kbdCnt = 0;
 	uint8_t agcNdx = 0;
 
 	Band band[] = {
-	  {FM_BAND_TYPE, 7200, 10800, 9510, 10},
+	  {FM_BAND_TYPE, 6400, 10800, 9510, 10},
 	  {LW_BAND_TYPE, 100, 510, 300, 1},
 	  {MW_BAND_TYPE, 520, 1720, 810, 10},
 	  {SW_BAND_TYPE, 1800, 3500, 1900, 1}, // 160 meters
-	  {SW_BAND_TYPE, 3500, 4500, 3700, 1}, // 80 meters
+	  {SW_BAND_TYPE, 3500, 4500, 3640, 1}, // 80 meters
 	  {SW_BAND_TYPE, 4500, 5500, 4850, 5},
 	  {SW_BAND_TYPE, 5600, 6300, 6000, 5},
 	  {SW_BAND_TYPE, 6800, 7800, 7200, 5}, // 40 meters
@@ -269,6 +278,7 @@ volatile uint32_t kbdCnt = 0;
 
 	fm_station_t fm_station[] = {
 			{0, "-----"},
+			{7210, "Radio Shanson"},
 			{9360, "Radio 7"},
 			{9400, "Comedy Radio"},
 			{9510, "Vesti FM"},
@@ -343,7 +353,7 @@ void putMsg(evt_t evt)
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
-	HAL_NVIC_DisableIRQ(SPI1_IRQn);
+//	HAL_NVIC_DisableIRQ(SPI1_IRQn);
 
 
 	if (cnt_evt >= MAX_FIFO_SIZE) {
@@ -363,7 +373,7 @@ void putMsg(evt_t evt)
 	if (wr_evt_err) devError |= devFifo;
 		       else devError &= ~devFifo;
 
-	HAL_NVIC_EnableIRQ(SPI1_IRQn);
+//	HAL_NVIC_EnableIRQ(SPI1_IRQn);
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
@@ -385,7 +395,7 @@ evt_t ret = msg_empty;
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
-	HAL_NVIC_DisableIRQ(SPI1_IRQn);
+//	HAL_NVIC_DisableIRQ(SPI1_IRQn);
 
 	if (cnt_evt) {
 		ret = evt_fifo[rd_evt_adr];
@@ -397,7 +407,7 @@ evt_t ret = msg_empty;
 		}
 	}
 
-	HAL_NVIC_EnableIRQ(SPI1_IRQn);
+//	HAL_NVIC_EnableIRQ(SPI1_IRQn);
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
@@ -472,6 +482,7 @@ evt_t ret = msg_empty;
 	//
 	void useBand()
 	{
+		bool snd = false;
 		//curFrec = SI4735_getFrequency();
 		currentWorkFrequency = curFrec;
 
@@ -487,7 +498,12 @@ evt_t ret = msg_empty;
 			else
 				SI4735_setTuneFrequencyAntennaCapacitor(1);
 			//
-			if (!ssbLoaded) ssbLoaded = SI4735_loadSSB(bwIdxSSB);
+			if (!ssbLoaded) {
+				ssbLoaded = SI4735_loadSSB(bwIdxSSB);
+				//
+				snd = true;//putMsg(msg_showLibs);
+				//
+			}
 			//
 			if (ssbLoaded) {
 				SI4735_setSSB(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep, radioMode);
@@ -501,12 +517,14 @@ evt_t ret = msg_empty;
 			SI4735_sendProperty(AM_SOFT_MUTE_MAX_ATTENUATION, 0);
 			SI4735_setAutomaticGainControl(disableAgc, agcNdx);
 		}
-		curFrec = band[bandIdx].currentFreq;
+		curFrec  = band[bandIdx].currentFreq;
 		stepFrec = band[bandIdx].currentStep;
-		minFrec = band[bandIdx].minimumFreq;
-		maxFrec = band[bandIdx].maximumFreq;
+		minFrec  = band[bandIdx].minimumFreq;
+		maxFrec  = band[bandIdx].maximumFreq;
 		_delay(50);//100
 		//showStatus();
+
+		if (snd) putMsg(msg_showLibs);
 	}
 	void bandUp()
 	{
@@ -534,6 +552,7 @@ evt_t ret = msg_empty;
 			// If you were in AM mode, it is necessary to load SSB patch (avery time)
 			ssbLoaded = SI4735_loadSSB(bwIdxSSB);
 			radioMode = LSBm;
+			//if (ssbLoaded) putMsg(msg_showLibs);
 		} else if (radioMode == LSBm) {
 			radioMode = USBm;
 		} else if (radioMode == USBm) {
@@ -688,7 +707,7 @@ evt_t ret = msg_empty;
 		sprintf(stz, "%uK", stepFrec);
 		sprintf(sl, "%s\n", mkLineWidth(stx, stz, wd));
 		//
-		strcpy(stx, " SNR:");
+		strcpy(stx, "SNR:");
 		if (radioSNR < 10) strcat(stx, " ");
 		sprintf(stx+strlen(stx), "%u", radioSNR);
 		strcpy(stz, "RSSI:");
@@ -698,7 +717,7 @@ evt_t ret = msg_empty;
 		sprintf(sl+strlen(sl), "%s\n", mkLineWidth(stx, stz, wd));
 		//
 		if ( radioMode == FMm) {
-			sprintf(stx, "Audio: %s %u", (SI4735_getCurrentPilot()) ? "STEREO" : "MONO", aVol);
+			sprintf(stx, "%s Vol:%u", (SI4735_getCurrentPilot()) ? "STEREO" : "MONO", aVol);
 		} else {
 			sprintf(stx, "AGC:%s", statAGC[disableAgc & 1]);
 			sprintf(stz, "ATT:%2d", agcNdx);
@@ -882,7 +901,7 @@ int main(void)
 
     	SI4735_getFirmware();
 
-	#if defined(SET_ST_IPS)
+	#ifdef SET_ST_IPS
     	ptr = (void *)&pbar;
     	updateBar(&pbar, aVol);
 	#endif
@@ -901,7 +920,7 @@ int main(void)
 
 #endif
 
-  	Report(NULL, true, "Version '%s'\nkbdPresent=%d kbdInit=%d kbdAddr=0x%02X\nsi4735:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
+  	Report(NULL, true, "Version '%s'\nkbdPresent=%d kbdInit=%d kbdAddr=0x%02X\nSI4735 info:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
   			\n\tPN=0x%02x\n\tFW=%c%c\n\tPATCH=0x%02x%02x\n\tCMP=%c%c\n\tCHIP=%c\n",
   			version,
 			kbdPresent, kbdInitOk, kbdAddr,
@@ -1063,16 +1082,21 @@ int main(void)
 								}
 							}
 						break;
-					}
-					if (ys == 1) {
-						putMsg(msg_updateScr);
-					}// else if (!ys) {
-						//updateStation(ptr, stline);
-					//}
+					}//switch (kid)
+					if (ys == 1) putMsg(msg_updateScr);
+				}//if (kid != -1)
+				if (!ep_start) {
+					spi_ssd1306_text_xy(mkLineCenter(stline, FONT_WIDTH), 1, 7, false);
+					clr_tmr = get_tmr(5);
 				}
-
-			}
+			}//if (decodeIRED(&results))
 		}
+  		if (clr_tmr) {
+  			if (check_tmr(clr_tmr)) {
+  				clr_tmr = 0;
+  				spi_ssd1306_clear_line(7, false);
+  			}
+  		}
   		if (ep_tmr) {
   			if (check_tmr(ep_tmr)) {
   				ep_tmr = 0;
@@ -1086,7 +1110,7 @@ int main(void)
 			if (check_tmr10(tmr_ired)) {
 				tmr_ired = 0;
 				resumeIRED();
-				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);//IRRED_LED();
+				HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
 			}
 		}
 #endif
@@ -1094,6 +1118,11 @@ int main(void)
 		msg = msg_none;
   		evt = getMsg();
   		switch ((int)evt) {
+  			//
+  			case msg_showLibs:
+  				HAL_Delay(100);
+  				Report(NULL, false, "libraryID: ID=%d FW=%d.%d\n", libs.raw[7], libs.raw[2], libs.raw[3]);
+  			break;
   			//
   			case msg_setEpoch:
   				if (ep_time > epoch) {
@@ -1166,14 +1195,15 @@ int main(void)
 									   (int)cnt_evt, (int)max_evt,
 									   bandModeDesc[radioMode & 3]);
   				if (radioMode == FMm)
-  					sprintf(buf+strlen(buf), "%u.%02u (%u.%u-%u.%u) MHz,",
+  					sprintf(buf+strlen(buf), "%u.%02u (%u.%u-%u.%u) MHz",
   							curFrec / 100, curFrec % 100,
 							minFrec / 100, minFrec % 100,
 							maxFrec / 100, maxFrec % 100);
   				else
-  					sprintf(buf+strlen(buf), "%u (%u-%u) KHz,", curFrec, minFrec, maxFrec);
+  					sprintf(buf+strlen(buf), "%u (%u-%u) KHz", curFrec, minFrec, maxFrec);
   				floatPart(dataADC, &vcc);
-  				sprintf(buf+strlen(buf), " Volume=%u ssbld=%d, Enc: key=%lu cnt=%lu, Volt:%u.%u\n",
+  				sprintf(buf+strlen(buf), " siIntCnt=%lu, Volume=%u ssbld=%d, Enc: key=%lu cnt=%lu, Volt:%u.%u\n",
+  										radioCntInt,
 										aVol,
 										ssbLoaded,
 										encKeyCnt, Encoder,
@@ -1448,7 +1478,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -1707,12 +1737,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SI_INT_Pin */
-  GPIO_InitStruct.Pin = SI_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(SI_INT_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pin : ENC_LED_Pin */
   GPIO_InitStruct.Pin = ENC_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -1737,8 +1761,8 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI3_IRQn, 7, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 7, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 }
 
@@ -1969,9 +1993,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 //------------------------------------------------------------------------------------------
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (huart->Instance == USART1) {
-		uartRdy = 1;
-	}
+	if (huart->Instance == USART1) uartRdy = 1;
 }
 //------------------------------------------------------------------------------------------
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -2129,12 +2151,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	keyFlag = false;
 
-	if (GPIO_Pin == SI_INT_Pin) {//пока не используется : this interrupt disable now
-		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		//HAL_GPIO_TogglePin(ENC_LED_GPIO_Port, ENC_LED_Pin);
-		radioCntInt++;
+	/*if (GPIO_Pin == SI_INT_Pin) {//пока не используется : this interrupt disable now
 		//
-	} else if (GPIO_Pin == ENC_KEY_Pin) {
+		radioCntInt++;
+//		data_from_si4735 = true;
+		//
+	} else*/
+	if (GPIO_Pin == ENC_KEY_Pin) {
 		encState = HAL_GPIO_ReadPin(ENC_KEY_GPIO_Port, ENC_KEY_Pin);
 		if (encState == GPIO_PIN_SET) {//released key
 			if (tikStart) {
@@ -2160,12 +2183,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 					bt1tik = 0;
 					keyFlag = true;
 					keyNumber = KEY1;
-
-					////bandIdx++;
-					////if (bandIdx > lastBand) bandIdx = 0;
-					////radioModeNew = bandIdx;
-					//radioMode = (radioMode + 1) & 3;
-					//radioModeNew = rcModes[radioMode];
 				}
 			}
 		}
