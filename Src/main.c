@@ -67,7 +67,10 @@
 //const char *version = "Version 1.8.7 (15.04.2021)";//set clk to 9MHz for spi1 (display)
 //const char *version = "Version 1.8.8 (16.04.2021)";
 //const char *version = "Version 1.8.9 (19.04.2021)";
-const char *version = "Version 1.9.0 (21.04.2021)";//remove si_int_pin support
+//const char *version = "Version 1.9.0 (21.04.2021)";//remove si_int_pin support
+//const char *version = "Version 1.9.1 (21.04.2021)";//edit interrupt's support and callback function
+const char *version = "Version 1.9.2 (25.04.2021)";// disable/enable print via uart (key <eq>)
+
 
 
 /* USER CODE END PD */
@@ -106,7 +109,8 @@ uint8_t max_evt = 0;
 
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
 //1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
-volatile time_t epoch = 1618993333;//1618846376;//1618569393;//1618479099;//1618309300;//1618234438;//1617787599;//1617619412;
+//1618995598;//1618993333;//1618846376;//1618569393;//1618479099;//1618309300;//1618234438;//1617787599;//1617619412;
+volatile time_t epoch = 1619335999;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -124,6 +128,8 @@ uint8_t uartRdy = 1;
 uint8_t devError = 0;
 uint32_t tikStart = 0;
 int tdl = 0;
+uint8_t enPrint = 1;
+uint32_t tmrPrint = 0;
 
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
 
@@ -170,7 +176,7 @@ uint32_t bt1tik = 0;
 uint32_t bt2tik = 0;
 uint32_t bt3tik = 0;
 uint32_t enctik = 0;
-bool keyFlag = false;
+//bool keyFlag = false;
 uint8_t keyNumber = NONE;
 
 uint16_t kbdCode = 0;
@@ -227,7 +233,6 @@ volatile uint32_t kbdCnt = 0;
 	uint8_t stepFrecInd = 2;
 	uint8_t radioSNR = 0, lradioSNR = 1, radioRSSI = 0, lradioRSSI = 1;
 	volatile uint8_t aVol = MAX_aVol;
-	volatile uint32_t radioCntInt = 0;
 	//
 	//
 	//
@@ -348,7 +353,7 @@ void putMsg(evt_t evt)
 	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI3_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 	//
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
@@ -377,7 +382,7 @@ void putMsg(evt_t evt)
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
-	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
@@ -391,7 +396,7 @@ evt_t ret = msg_empty;
 	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI3_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 
 	HAL_NVIC_DisableIRQ(TIM2_IRQn);
 	HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -411,7 +416,7 @@ evt_t ret = msg_empty;
 	HAL_NVIC_EnableIRQ(USART1_IRQn);
 	HAL_NVIC_EnableIRQ(TIM2_IRQn);
 
-	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
@@ -899,6 +904,7 @@ int main(void)
     	SI4735_setVolume(aVol);
     	//showStatus();
 
+    	HAL_Delay(100);
     	SI4735_getFirmware();
 
 	#ifdef SET_ST_IPS
@@ -952,6 +958,8 @@ int main(void)
 
   	lastEncoder = Encoder = TIM4->CNT;
   	putMsg(msg_500ms);
+
+  	tmrPrint = get_tmr(10);
 
     /* Infinite loop */
 
@@ -1025,10 +1033,11 @@ int main(void)
 							SI4735_setFrequency(curFrec);
 							if (radioMode == FMm) ys = 1;
 						break;
-						/*case key_eq:
-							newMode();
-							ys = 1;
-						break;*/
+						case key_eq:// enable/disable print via uart
+							//newMode();
+							//ys = 1;
+							enPrint = (enPrint + 1) & 1;
+						break;
 						case key_sp:
 							//bandwitdthButton();
 							//ys = 1;
@@ -1180,6 +1189,16 @@ int main(void)
   					lradioRSSI = radioRSSI;
   					msg = msg_showAll;
   				}
+  				//
+  				if (tmrPrint) {
+  					if (check_tmr(tmrPrint)) {
+  						tmrPrint = 0;
+  						enPrint = 0;
+  						Report(NULL, false, "print disable, key <eq> for enable/disable\n");
+  					}
+  				}
+  				//
+
   			}
   			break;
   			case msg_sec:
@@ -1202,8 +1221,7 @@ int main(void)
   				else
   					sprintf(buf+strlen(buf), "%u (%u-%u) KHz", curFrec, minFrec, maxFrec);
   				floatPart(dataADC, &vcc);
-  				sprintf(buf+strlen(buf), " siIntCnt=%lu, Volume=%u ssbld=%d, Enc: key=%lu cnt=%lu, Volt:%u.%u\n",
-  										radioCntInt,
+  				sprintf(buf+strlen(buf), ", Volume=%u ssbld=%d, Enc: key=%lu cnt=%lu, Volt:%u.%u\n",
 										aVol,
 										ssbLoaded,
 										encKeyCnt, Encoder,
@@ -1224,7 +1242,7 @@ int main(void)
 										   mem_info.keepcost);// Top-most, releasable space (bytes)
   				}
 #endif
-  				Report(NULL, false, "%s", buf);
+  				if (enPrint) Report(NULL, false, "%s", buf);
 
   				if (devError) errLedOn(NULL);
 
@@ -2149,14 +2167,8 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 //-------------------------------------------------------------------------------------------
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	keyFlag = false;
+	evt_t ek = msg_none;
 
-	/*if (GPIO_Pin == SI_INT_Pin) {//пока не используется : this interrupt disable now
-		//
-		radioCntInt++;
-//		data_from_si4735 = true;
-		//
-	} else*/
 	if (GPIO_Pin == ENC_KEY_Pin) {
 		encState = HAL_GPIO_ReadPin(ENC_KEY_GPIO_Port, ENC_KEY_Pin);
 		if (encState == GPIO_PIN_SET) {//released key
@@ -2165,7 +2177,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 					tikStart = 0;
 					encKeyPressed = false;
 					encKeyCnt++;
-					putMsg(msg_encReleased);
+					ek = msg_encReleased;
 				}
 			}
 		} else {//pressed key
@@ -2181,7 +2193,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt1tik) {
 				if ((HAL_GetTick() - bt1tik) > TIME_btKeyPressed) {
 					bt1tik = 0;
-					keyFlag = true;
+					ek = msg_keyEvent;//keyFlag = true;
 					keyNumber = KEY1;
 				}
 			}
@@ -2195,7 +2207,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt2tik) {
 				if ((HAL_GetTick() - bt2tik) > TIME_btKeyPressed) {
 					bt2tik = 0;
-					keyFlag = true;
+					ek = msg_keyEvent;//keyFlag = true;
 					keyNumber = KEY2;
 				}
 			}
@@ -2209,7 +2221,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (bt3tik) {
 				if ((HAL_GetTick() - bt3tik) > TIME_btKeyPressed) {
 					bt3tik = 0;
-					keyFlag = true;
+					ek = msg_keyEvent;//keyFlag = true;
 					keyNumber = KEY3;
 				}
 			}
@@ -2217,7 +2229,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, !bt3State);
 	}
 
-	if (keyFlag) putMsg(msg_keyEvent);
+	if (ek != msg_none) putMsg(ek);
 
 }
 //-------------------------------------------------------------------------------------------

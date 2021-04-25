@@ -93,7 +93,8 @@ enum {
 	NONE = 0,
 	KEY1,
 	KEY2,
-	KEY3
+	KEY3,
+	EKEY
 };
 
 /* USER CODE END ET */
@@ -200,7 +201,7 @@ void Error_Handler(void);
 #define MAX_UART_BUF  768
 
 #define TIME_encKeyPressed 75
-#define TIME_btKeyPressed 75
+#define TIME_btKeyPressed 80
 
 
 #ifdef SET_OLED_SPI
