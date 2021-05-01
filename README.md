@@ -1,5 +1,5 @@
 # radio-si4735_stm32
-radio device project : si4735 chip + stm32f103 + ssd1306 display + NS8002 power amplifier chip
+radio device project : si4735 chip + stm32f103 + ssd1306 display + mpr121 keyboard + NS8002 power amplifier chip
 
 Hardware components :
 
@@ -9,7 +9,7 @@ Hardware components :
 * ssd1306 OLED display 128x64 //ST7789 1.3 inch IPS display 240x240 RGB
 * NS8002 chip - audio power amplifier
 * speaker 8 Om 3 W
-* 3-button module
+* keyboard MPR121
 * Valkoder module
 * TL1838 Infrared Receiver
 ```

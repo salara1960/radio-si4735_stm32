@@ -69,7 +69,9 @@
 //const char *version = "Version 1.8.9 (19.04.2021)";
 //const char *version = "Version 1.9.0 (21.04.2021)";//remove si_int_pin support
 //const char *version = "Version 1.9.1 (21.04.2021)";//edit interrupt's support and callback function
-const char *version = "Version 1.9.2 (25.04.2021)";// disable/enable print via uart (key <eq>)
+//const char *version = "Version 1.9.2 (25.04.2021)";// disable/enable print via uart (key <eq>)
+//const char *version = "Version 1.9.3 (01.05.2021)";// on/off oled display
+const char *version = "Version 2.0 (01.05.2021)";// add KBD support (MPR121 chip, i2c)
 
 
 
@@ -110,7 +112,7 @@ uint8_t max_evt = 0;
 //1616962770;//1615977250;//1615885520;//1615814070;//1615655630;//1615298580;//1615039137;
 //1617529310;//1617479610;//1617362170;//1617305710;//1617097990;//1617036280;//1617015492;
 //1618995598;//1618993333;//1618846376;//1618569393;//1618479099;//1618309300;//1618234438;//1617787599;//1617619412;
-volatile time_t epoch = 1619335999;
+volatile time_t epoch = 1619880117;//1619861396;//1619335999;
 uint8_t tZone = 2;
 volatile uint32_t cnt_err = 0;
 volatile uint8_t restart_flag = 0;
@@ -136,6 +138,7 @@ uint32_t tmrPrint = 0;
 	SPI_HandleTypeDef *portOLED = &hspi1;
 	void *ptr = NULL;
 
+	uint8_t screenON = 0;
 	uint32_t spiRdy = 1;
 	uint32_t spi_cnt = 0;
 	//char sline[128] = {0};
@@ -179,12 +182,24 @@ uint32_t enctik = 0;
 //bool keyFlag = false;
 uint8_t keyNumber = NONE;
 
-uint16_t kbdCode = 0;
+//uint16_t kbdCode = 0;
+//bool kbdPresent = false;
+//bool kbdInitOk = false;
+//int16_t kbdAddr = 0;
+//bool kbdEnable = false;
+//volatile uint32_t kbdCnt = 0;
+
 bool kbdPresent = false;
 bool kbdInitOk = false;
 int16_t kbdAddr = 0;
 bool kbdEnable = false;
-volatile uint32_t kbdCnt = 0;
+#ifdef SET_KBD
+	I2C_HandleTypeDef *portKBD = &hi2c2;//&hi2c1;
+	uint8_t cntKBD = 0;
+	volatile uint16_t kbdCode = 0;
+	volatile uint32_t kbdCnt = 0;
+	uint8_t kbdRdy = 1;
+#endif
 
 #ifdef SET_IRED
 
@@ -216,10 +231,11 @@ volatile uint32_t kbdCnt = 0;
 
 #endif
 
+
 #ifdef SET_SI4735
 	I2C_HandleTypeDef *portRADIO = &hi2c2;
-	uint32_t min_wait_ms = 100;
-	uint32_t max_wait_ms = 250;
+	//uint32_t min_wait_ms = 100;
+	//uint32_t max_wait_ms = 250;
 	bool radioPresent = false;
 	uint16_t minFrec, maxFrec;
 	uint16_t curFrec = curFrecFM; // KHz
@@ -350,8 +366,6 @@ void putMsg(evt_t evt)
 
 	if (cnt_evt > (MAX_FIFO_SIZE - 5)) return;
 	//
-	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI3_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 	//
@@ -384,8 +398,6 @@ void putMsg(evt_t evt)
 
 	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
 }
 //-------------------------------------------------------------------------------------------
@@ -393,8 +405,6 @@ evt_t getMsg()
 {
 evt_t ret = msg_empty;
 
-	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI3_IRQn);
 	HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
 
@@ -418,8 +428,6 @@ evt_t ret = msg_empty;
 
 	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
 	return ret;
 }
@@ -741,10 +749,8 @@ evt_t ret = msg_empty;
 		ST7789_WriteString(4, (fntKey->height << 1) + 12, sline, *tFont, invColor(GREEN), invColor(BLUE));
 #else
 		int len = strlen(sl);
-		//withDMA = 1;
 		if (len < scr_len) spi_ssd1306_clear_from_to(5, 6);
 		spi_ssd1306_text_xy(sl, 1, 3, false);
-		//withDMA = 0;
 		scr_len = len;
 #endif
 	}
@@ -847,6 +853,7 @@ int main(void)
   	set_Date((time_t)(++epoch));
     uint32_t pack_num = 0;
 
+
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
 	portOLED = &hspi1;
 #endif
@@ -880,13 +887,15 @@ int main(void)
 
 
 #elif defined(SET_OLED_SPI)
+  	screenON = 1;
   	spi_ssd1306_Reset();
-  	//spi_ssd1306_on(1);//screen ON
+  	//  spi_ssd1306_on(screenON);//screen ON
   	spi_ssd1306_init();//screen INIT
   	spi_ssd1306_pattern();//set any params for screen
-  	//spi_ssd1306_invert();
+  	//  spi_ssd1306_invert();
   	spi_ssd1306_clear();//clear screen
 #endif
+
 
 
 #ifdef SET_SI4735
@@ -925,6 +934,16 @@ int main(void)
     }
 
 #endif
+
+
+#ifdef SET_KBD
+    kbdPresent = KBD_getAddr(&kbdAddr);
+    if (kbdPresent) {
+    	kbdInitOk = kbdInit();
+    	if (kbdInitOk) kbdEnable = true;
+    }
+#endif
+
 
   	Report(NULL, true, "Version '%s'\nkbdPresent=%d kbdInit=%d kbdAddr=0x%02X\nSI4735 info:\n\tSTAT=0x%02x:\n\t\tCTS:%u ERR=%u DUMMY2=%u RSQINT=%u RDSINT=%u DUMMY1=%u STCINT=%u\
   			\n\tPN=0x%02x\n\tFW=%c%c\n\tPATCH=0x%02x%02x\n\tCMP=%c%c\n\tCHIP=%c\n",
@@ -1057,14 +1076,19 @@ int main(void)
 								putMsg(msg_setEpoch);
 							}
 						break;
-						/*case key_100:
-							bandUp();
-							ys = 1;
+						case key_100:
+							//bandUp();
+							//ys = 1;
+							screenON++;
+							screenON &= 1;
+							spi_ssd1306_on(screenON);
 						break;
 						case key_200:
-							bandDown();
+							//bandDown();
 							ys = 1;
-						break;*/
+							//
+							newMode();//change mode : FM, LSB, USB, AM
+						break;
 						case key_0:
 							//disableAgc++;
 							//disableAgc &= 1;
@@ -1127,6 +1151,23 @@ int main(void)
 		msg = msg_none;
   		evt = getMsg();
   		switch ((int)evt) {
+  			//
+			case msg_kbd:
+#if defined(SET_KBD) && defined(SET_OLED_SPI)
+				if (kbdEnable) {
+					kbdCode = kbd_get_touch();
+					if (kbdCode >= 0x23) {
+						HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, GPIO_PIN_SET);
+						kbdCnt++;
+						sprintf(stline, "KBD: <%c>", (char)kbdCode);
+						mkLineCenter(stline, FONT_WIDTH);
+						spi_ssd1306_text_xy(stline, 1, 8, false);
+					} else {
+						HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, GPIO_PIN_RESET);
+					}
+				}
+#endif
+			break;
   			//
   			case msg_showLibs:
   				HAL_Delay(100);
@@ -1248,7 +1289,7 @@ int main(void)
 
   			}
   			break;
-  			case msg_keyEvent:
+  			/*case msg_keyEvent:
   				switch (keyNumber) {
   					case KEY1:
   						newMode();//change mode : FM, LSB, USB, AM
@@ -1270,7 +1311,7 @@ int main(void)
   				}
   				if (keyNumber != NONE) msg = msg_updateScr;
   				keyNumber = NONE;
-  			break;
+  			break;*/
   			case msg_rst:
   				HAL_Delay(200);
   				Report(NULL, true, "Restart...\n");
@@ -1721,19 +1762,33 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED_ERROR_Pin|ENC_LED_Pin|OLED_DC_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED1_Pin|ENC_LED_Pin|LED_ERROR_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, SI_RST_Pin|OLED_RST_Pin, GPIO_PIN_SET);
 
-  /*Configure GPIO pins : BT1_Pin BT2_Pin BT3_Pin ENC_KEY_Pin */
-  GPIO_InitStruct.Pin = BT1_Pin|BT2_Pin|BT3_Pin|ENC_KEY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  /*Configure GPIO pin : LED_ERROR_Pin */
+  GPIO_InitStruct.Pin = LED_ERROR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_ERROR_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : ENC_LED_Pin OLED_DC_Pin */
+  GPIO_InitStruct.Pin = ENC_LED_Pin|OLED_DC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : KBD_INT_Pin */
+  GPIO_InitStruct.Pin = KBD_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(KBD_INT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : IRED_Pin */
   GPIO_InitStruct.Pin = IRED_Pin;
@@ -1741,12 +1796,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IRED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : OLED_DC_Pin */
-  GPIO_InitStruct.Pin = OLED_DC_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  /*Configure GPIO pin : ENC_KEY_Pin */
+  GPIO_InitStruct.Pin = ENC_KEY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(OLED_DC_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(ENC_KEY_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin SI_RST_Pin OLED_RST_Pin */
   GPIO_InitStruct.Pin = LED1_Pin|SI_RST_Pin|OLED_RST_Pin;
@@ -1755,27 +1809,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : ENC_LED_Pin */
-  GPIO_InitStruct.Pin = ENC_LED_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(ENC_LED_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LED_ERROR_Pin */
-  GPIO_InitStruct.Pin = LED_ERROR_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_ERROR_GPIO_Port, &GPIO_InitStruct);
-
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 7, 0);
-  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI2_IRQn, 7, 0);
-  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-
   HAL_NVIC_SetPriority(EXTI3_IRQn, 7, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
@@ -2093,7 +2127,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		if (!(HalfSecCounter % _1s)) {//seconda
 			secCounter++;
 			//HalfSecCounter = 0;
-			HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);//set ON/OFF LED1
+			if (screenON) {
+				HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);//set ON/OFF LED1
+			} else {
+				if (HAL_GPIO_ReadPin(LED1_GPIO_Port, LED1_Pin) == GPIO_PIN_SET)
+					HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+			}
 			putMsg(msg_sec);
 		}
 	}
@@ -2185,49 +2224,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if (!tikStart) tikStart = HAL_GetTick();
 		}
 		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, encKeyPressed);
-	} else if (GPIO_Pin == BT1_Pin) {
-		bt1State = HAL_GPIO_ReadPin(BT1_GPIO_Port, BT1_Pin);
-		if (bt1State == GPIO_PIN_RESET) {//pressed key
-			if (!bt1tik) bt1tik = HAL_GetTick();
-		} else {//released key
-			if (bt1tik) {
-				if ((HAL_GetTick() - bt1tik) > TIME_btKeyPressed) {
-					bt1tik = 0;
-					ek = msg_keyEvent;//keyFlag = true;
-					keyNumber = KEY1;
-				}
-			}
-		}
-		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, !bt1State);
-	} else if (GPIO_Pin == BT2_Pin) {
-		bt2State = HAL_GPIO_ReadPin(BT2_GPIO_Port, BT2_Pin);
-		if (bt2State == GPIO_PIN_RESET) {//pressed key
-			if (!bt2tik) bt2tik = HAL_GetTick();
-		} else {//released key
-			if (bt2tik) {
-				if ((HAL_GetTick() - bt2tik) > TIME_btKeyPressed) {
-					bt2tik = 0;
-					ek = msg_keyEvent;//keyFlag = true;
-					keyNumber = KEY2;
-				}
-			}
-		}
-		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, !bt2State);
-	} else if (GPIO_Pin == BT3_Pin) {
-		bt3State = HAL_GPIO_ReadPin(BT3_GPIO_Port, BT3_Pin);
-		if (bt3State == GPIO_PIN_RESET) {//pressed key
-			if (!bt3tik) bt3tik = HAL_GetTick();
-		} else {//released key
-			if (bt3tik) {
-				if ((HAL_GetTick() - bt3tik) > TIME_btKeyPressed) {
-					bt3tik = 0;
-					ek = msg_keyEvent;//keyFlag = true;
-					keyNumber = KEY3;
-				}
-			}
-		}
-		HAL_GPIO_WritePin(ENC_LED_GPIO_Port, ENC_LED_Pin, !bt3State);
 	}
+#ifdef SET_KBD
+	else if (GPIO_Pin == KBD_INT_Pin) {
+		if (kbdEnable) ek = msg_kbd;
+	}
+#endif
 
 	if (ek != msg_none) putMsg(ek);
 

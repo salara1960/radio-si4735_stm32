@@ -57,6 +57,10 @@ extern "C" {
 	#include "si4735.h"
 #endif
 
+#ifdef SET_KBD
+	#include "mpr121.h"
+#endif
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -68,7 +72,8 @@ enum {
 	devADC = 4,
 	devI2C = 8,
 	devFifo = 0x10,
-	devMem = 0x20
+	devMem = 0x20,
+	devKBD = 0x40
 };
 
 typedef enum {
@@ -80,7 +85,8 @@ typedef enum {
 //	msg_encCounter,
 //	msg_encPressed,
 	msg_encReleased,
-	msg_keyEvent,
+//	msg_keyEvent,
+	msg_kbd,
 	msg_incFrec,
 	msg_decFrec,
 	msg_updateScr,
@@ -120,15 +126,13 @@ void Error_Handler(void);
 #define MAX_ENC_VALUE 32767
 #define MIN_ENC_VALUE 0
 #define ENC_PERIOD 65535
-#define BT1_Pin GPIO_PIN_1
-#define BT1_GPIO_Port GPIOA
-#define BT1_EXTI_IRQn EXTI1_IRQn
-#define BT2_Pin GPIO_PIN_2
-#define BT2_GPIO_Port GPIOA
-#define BT2_EXTI_IRQn EXTI2_IRQn
-#define BT3_Pin GPIO_PIN_3
-#define BT3_GPIO_Port GPIOA
-#define BT3_EXTI_IRQn EXTI3_IRQn
+#define LED_ERROR_Pin GPIO_PIN_1
+#define LED_ERROR_GPIO_Port GPIOA
+#define ENC_LED_Pin GPIO_PIN_2
+#define ENC_LED_GPIO_Port GPIOA
+#define KBD_INT_Pin GPIO_PIN_3
+#define KBD_INT_GPIO_Port GPIOA
+#define KBD_INT_EXTI_IRQn EXTI3_IRQn
 #define IRED_Pin GPIO_PIN_4
 #define IRED_GPIO_Port GPIOA
 #define ENC_KEY_Pin GPIO_PIN_6
@@ -138,7 +142,7 @@ void Error_Handler(void);
 #define OLED_DC_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_0
 #define LED1_GPIO_Port GPIOB
-#define SI_RST_Pin GPIO_PIN_12
+#define SI_RST_Pin GPIO_PIN_1
 #define SI_RST_GPIO_Port GPIOB
 #define OLED_SCK_Pin GPIO_PIN_3
 #define OLED_SCK_GPIO_Port GPIOB
@@ -150,10 +154,6 @@ void Error_Handler(void);
 #define TIM4_CH1_S2_GPIO_Port GPIOB
 #define TIM4_CH2_S1_Pin GPIO_PIN_7
 #define TIM4_CH2_S1_GPIO_Port GPIOB
-#define ENC_LED_Pin GPIO_PIN_8
-#define ENC_LED_GPIO_Port GPIOB
-#define LED_ERROR_Pin GPIO_PIN_9
-#define LED_ERROR_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /*
@@ -203,6 +203,10 @@ void Error_Handler(void);
 #define TIME_encKeyPressed 75
 #define TIME_btKeyPressed 80
 
+#define min_wait_ms 150
+#define max_wait_ms 1000
+
+
 
 #ifdef SET_OLED_SPI
 	#ifdef WITH_CS
@@ -225,8 +229,17 @@ uint32_t spiRdy;
 volatile uint32_t cnt_err;
 
 
+#ifdef SET_KBD
+//	#define min_wait_ms 150
+//	#define max_wait_ms 1000
+
+	I2C_HandleTypeDef *portKBD;
+	int16_t kbdAddr;
+#endif
+
 #if defined(SET_ST_IPS) || defined(SET_OLED_SPI)
 	SPI_HandleTypeDef *portOLED;
+	uint8_t screenON;
 #endif
 #if defined(SET_ST_IPS)
 	const FontDef *fntKey;

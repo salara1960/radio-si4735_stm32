@@ -26,7 +26,7 @@
 //	#define SET_SI4735_INT
 #endif
 
-//#define SET_KBD
+#define SET_KBD
 
 #define SET_IRED
 
